@@ -1,0 +1,22 @@
+---
+env_id: highway-v0
+n_envs: &_n_envs 48
+gamma: &_gamma 0.96
+enable_venv_subprocess: &_enable_venv_subprocess True
+
+env:
+  observation:
+    type: Kinematics
+    features: &_observation_features
+      [presence, x, y, vx, vy, cos_h, sin_h, heading]
+    vehicles_count: 20
+    absolute: True
+    order: sorted
+  action:
+    type: ContinuousAction
+  duration: 300
+  policy_frequency: 5
+  simulation_frequency: 10
+  vehicles_count: 60
+  lanes_count: 4
+...

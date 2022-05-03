@@ -1,0 +1,41 @@
+---
+env_id: highway-v0
+n_envs: &_n_envs 48
+gamma: &_gamma 0.98
+enable_venv_subprocess: &_enable_venv_subprocess True
+
+env:
+  observation:
+    type: Kinematics
+    features: &_observation_features
+      [presence, x, y, vx, vy, cos_h, sin_h, heading]
+    vehicles_count: 30
+    absolute: True
+    order: sorted
+  action:
+    type: ContinuousAction
+  duration: 600
+  policy_frequency: 5
+  simulation_frequency: 10
+  vehicles_count: 100
+  lanes_count: 6
+
+PPO:
+  model:
+    policy: MlpPolicy
+    policy_kwargs:
+      net_arch: [{pi: [256, 256], vf: [256, 256]}]
+    n_steps: 128
+    batch_size: 64
+    n_epochs: 10
+    learning_rate: 0.0005
+    gamma: *_gamma
+    tensorboard_log: tensorboard/MLP_absolute
+    verbose: 2
+  train:
+    total_timesteps: 500000
+    n_train_envs: *_n_envs
+    n_eval_envs: 8
+    eval_timesteps: 6000
+    n_eval_episodes: 8
+...
