@@ -1,7 +1,7 @@
 ---
 env_id: highway-v0
-n_envs: &_n_envs 24
-gamma: &_gamma 0.96
+n_envs: &_n_envs 12
+gamma: &_gamma 0.98
 enable_venv_subprocess: &_enable_venv_subprocess True
 
 env:
@@ -9,33 +9,41 @@ env:
     type: Kinematics
     features: &_observation_features
       [presence, x, y, vx, vy, cos_h, sin_h, heading]
-    vehicles_count: 30
-    absolute: False
+    features_range:
+      x: [0, 50]
+      y: [0, 50]
+      vx: [20, 30]
+      vy: [0, 10]
+    vehicles_count: 40
     order: sorted
+    sea_behind: True
+    # absolute: True
+    normalize: True
   action:
     type: ContinuousAction
   duration: 300
-  policy_frequency: 5
+  policy_frequency: 10
   simulation_frequency: 10
-  vehicles_count: 60
-  lanes_count: 4
+  vehicles_count: 100
+  lanes_count: 6
+  vehicles_density: 2
 
 PPO:
   model:
     policy: MlpPolicy
     policy_kwargs:
-      net_arch: [{pi: [256, 256], vf: [256, 256]}]
-    n_steps: 64
+      net_arch: [{pi: [128, 128, 128, 128], vf: [128, 128, 128, 128]}]
+    n_steps: 512
     batch_size: 64
     n_epochs: 10
-    learning_rate: 0.0005
+    learning_rate: 0.0003
     gamma: *_gamma
-    tensorboard_log: tensorboard/MLP_relative
+    # tensorboard_log: tensorboard/MLP_relative
     verbose: 2
   train:
-    total_timesteps: 500000
+    total_timesteps: 1000000
     n_train_envs: *_n_envs
     n_eval_envs: 12
-    eval_timesteps: 6000
+    eval_timesteps: 12000
     n_eval_episodes: 12
 ...

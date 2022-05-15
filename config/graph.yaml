@@ -1,7 +1,7 @@
 ---
 env_id: highway-v0
-n_envs: &_n_envs 24
-gamma: &_gamma 0.96
+n_envs: &_n_envs 1
+gamma: &_gamma 0.98
 enable_venv_subprocess: &_enable_venv_subprocess True
 
 env:
@@ -9,51 +9,61 @@ env:
     type: Kinematics
     features: &_observation_features
       [presence, x, y, vx, vy, cos_h, sin_h, heading]
-    vehicles_count: 30
-    absolute: True
+    features_range:
+      x: [0, 50]
+      y: [0, 50]
+      vx: [20, 30]
+      vy: [0, 10]
+    vehicles_count: 40
     order: sorted
+    sea_behind: True
+    # absolute: True
+    normalize: True
   action:
     type: ContinuousAction
   duration: 300
-  policy_frequency: 5
+  policy_frequency: 10
   simulation_frequency: 10
-  vehicles_count: 60
-  lanes_count: 4
+  vehicles_count: 100
+  lanes_count: 6
+  vehicles_density: 2
+
+PPO:
+  model:
+    policy: MultiInputPolicy  # MlpPolicy
+    policy_kwargs:
+      net_arch: [{pi: [128, 128], vf: [128, 128]}]
+    n_steps: 512
+    batch_size: 64
+    n_epochs: 10
+    learning_rate: 0.0003
+    gamma: *_gamma
+    # tensorboard_log: temp #tensorboard/Transformer_absolute
+    verbose: 2
+  train:
+    total_timesteps: 1000000
+    n_train_envs: *_n_envs
+    n_eval_envs: 1
+    eval_timesteps: 12000
+    n_eval_episodes: 1
 
 graph:
   # exactly one of {n_neighbors, radius} should be set and the other should be
   # null.
   n_neighbors: 5
   observation_features: *_observation_features
+  use_edge_attr: False
+  graph_cls: xfmr  # {xfmr, gat}
 
 GAT:
-  embedding_dims: [64, 64]
-  node_dims: [64, 64, 64]
+  embedding_dims: [32, 32]
+  node_dims: [32, 32, 32]
   n_heads: 4  # default = 1
   concat_heads: True  # If set to False, the multi-head attentions are averaged instead of concatenated.
 
 Transoformer:
-  embedding_dims: [64, 64]
-  node_dims: [64, 64, 64]
+  embedding_dims: [32, 32]
+  node_dims: [32, 32, 32]
   n_heads: 4  # default = 1
   concat_heads: True  # If set to False, the multi-head attentions are averaged instead of concatenated.
-
-PPO:
-  model:
-    policy: MultiInputPolicy  # MlpPolicy
-    policy_kwargs: {}
-    #  net_arch: [{pi: [256, 256], vf: [256, 256]}]
-    n_steps: 64
-    batch_size: 64
-    n_epochs: 10
-    learning_rate: 0.0003
-    gamma: *_gamma
-    tensorboard_log: tensorboard/Transformer_absolute
-    verbose: 2
-  train:
-    total_timesteps: 500000
-    n_train_envs: *_n_envs
-    n_eval_envs: 12
-    eval_timesteps: 6000
-    n_eval_episodes: 12
 ...
