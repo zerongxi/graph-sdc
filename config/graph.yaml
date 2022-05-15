@@ -1,7 +1,7 @@
 ---
 env_id: highway-v0
-n_envs: &_n_envs 48
-gamma: &_gamma 0.98
+n_envs: &_n_envs 24
+gamma: &_gamma 0.96
 enable_venv_subprocess: &_enable_venv_subprocess True
 
 env:
@@ -14,39 +14,46 @@ env:
     order: sorted
   action:
     type: ContinuousAction
-  duration: 600
+  duration: 300
   policy_frequency: 5
   simulation_frequency: 10
-  vehicles_count: 100
-  lanes_count: 6
+  vehicles_count: 60
+  lanes_count: 4
 
 graph:
   # exactly one of {n_neighbors, radius} should be set and the other should be
   # null.
-  n_neighbors: 8
+  n_neighbors: 5
   observation_features: *_observation_features
 
 GAT:
-  node_dims: [32, 32, 32]
-  n_heads: 4  # default: 1
+  embedding_dims: [64, 64]
+  node_dims: [64, 64, 64]
+  n_heads: 4  # default = 1
+  concat_heads: True  # If set to False, the multi-head attentions are averaged instead of concatenated.
+
+Transoformer:
+  embedding_dims: [64, 64]
+  node_dims: [64, 64, 64]
+  n_heads: 4  # default = 1
   concat_heads: True  # If set to False, the multi-head attentions are averaged instead of concatenated.
 
 PPO:
   model:
     policy: MultiInputPolicy  # MlpPolicy
-    policy_kwargs:
-      net_arch: [{pi: [256, 256], vf: [256, 256]}]
-    n_steps: 128
+    policy_kwargs: {}
+    #  net_arch: [{pi: [256, 256], vf: [256, 256]}]
+    n_steps: 64
     batch_size: 64
     n_epochs: 10
     learning_rate: 0.0003
     gamma: *_gamma
-    tensorboard_log: tensorboard/GAT_absolute
+    tensorboard_log: tensorboard/Transformer_absolute
     verbose: 2
   train:
     total_timesteps: 500000
     n_train_envs: *_n_envs
-    n_eval_envs: 8
+    n_eval_envs: 12
     eval_timesteps: 6000
-    n_eval_episodes: 8
+    n_eval_episodes: 12
 ...
