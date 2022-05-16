@@ -1,6 +1,6 @@
 ---
 env_id: highway-v0
-n_envs: &_n_envs 1
+n_envs: &_n_envs 12
 gamma: &_gamma 0.98
 enable_venv_subprocess: &_enable_venv_subprocess True
 
@@ -10,8 +10,8 @@ env:
     features: &_observation_features
       [presence, x, y, vx, vy, cos_h, sin_h, heading]
     features_range:
-      x: [0, 50]
-      y: [0, 50]
+      x: [0, 100]
+      y: [0, 100]
       vx: [20, 30]
       vy: [0, 10]
     vehicles_count: 40
@@ -27,6 +27,7 @@ env:
   vehicles_count: 100
   lanes_count: 6
   vehicles_density: 2
+  offroad_terminal: True
 
 PPO:
   model:
@@ -43,27 +44,28 @@ PPO:
   train:
     total_timesteps: 1000000
     n_train_envs: *_n_envs
-    n_eval_envs: 1
-    eval_timesteps: 12000
-    n_eval_episodes: 1
+    n_eval_envs: *_n_envs
+    eval_timesteps: 18000
+    n_eval_episodes: *_n_envs
 
+graph_cls: gat  # {xfmr, gat}
 graph:
   # exactly one of {n_neighbors, radius} should be set and the other should be
   # null.
-  n_neighbors: 5
+  n_neighbors: 6
   observation_features: *_observation_features
-  use_edge_attr: False
-  graph_cls: xfmr  # {xfmr, gat}
 
-GAT:
-  embedding_dims: [32, 32]
+gat:
+  embedding_dims: [32]
   node_dims: [32, 32, 32]
   n_heads: 4  # default = 1
+  edge_dims: [64, 64, 64]
   concat_heads: True  # If set to False, the multi-head attentions are averaged instead of concatenated.
 
-Transoformer:
-  embedding_dims: [32, 32]
+xfmr:
+  embedding_dims: [32]
   node_dims: [32, 32, 32]
   n_heads: 4  # default = 1
+  edge_dims: [64, 64, 64]
   concat_heads: True  # If set to False, the multi-head attentions are averaged instead of concatenated.
 ...

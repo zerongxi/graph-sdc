@@ -10,8 +10,8 @@ env:
     features: &_observation_features
       [presence, x, y, vx, vy, cos_h, sin_h, heading]
     features_range:
-      x: [0, 50]
-      y: [0, 50]
+      x: [0, 100]
+      y: [0, 100]
       vx: [20, 30]
       vy: [0, 10]
     vehicles_count: 40
@@ -27,6 +27,7 @@ env:
   vehicles_count: 100
   lanes_count: 6
   vehicles_density: 2
+  offroad_terminal: True
 
 PPO:
   model:
@@ -43,7 +44,7 @@ PPO:
   train:
     total_timesteps: 1000000
     n_train_envs: *_n_envs
-    n_eval_envs: 12
-    eval_timesteps: 12000
-    n_eval_episodes: 12
+    n_eval_envs: *_n_envs
+    eval_timesteps: 18000
+    n_eval_episodes: *_n_envs
 ...

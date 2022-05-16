@@ -1,8 +1,10 @@
 import logging
+from optparse import Option
 from re import X
 from typing import Dict, Optional, Tuple
 from gym import spaces
 import torch as th
+from torch.nn import functional as F
 
 from torch_geometric.nn import Sequential, Linear, GATv2Conv, TransformerConv
 from torch_geometric.data import Data as Graph
@@ -16,15 +18,21 @@ class GraphFeaturesExtractor(BaseFeaturesExtractor):
         self,
         observation_space: spaces.Dict,
         config: Dict,
-        features_dim: Optional[int]
+        graph_cls_name: str,
     ):
-        if features_dim is None:
-            features_dim = config["node_dims"][-1]
+        features_dim = config["node_dims"][-1]
+        if config.get("concat_heads", True):
+            n_heads = config.get("n_heads", 1)
+            if isinstance(n_heads, int):
+                n_heads = [n_heads]
+            features_dim *= n_heads[-1]
         super().__init__(
             observation_space=observation_space,
             features_dim=features_dim,
         )
         self.config = config
+        self.negative_slope = self.config.get("negative_slope", 0.2)
+        self.graph_cls_name = graph_cls_name
         self._build_embedding_net()
         self._build_graph_net()
 
@@ -36,9 +44,9 @@ class GraphFeaturesExtractor(BaseFeaturesExtractor):
             logging.info("Building Embedding Network")
             for out_dim in embedding_dims:
                 node_embedding_layers.append(Linear(-1, out_dim))
-                node_embedding_layers.append(th.nn.ReLU())
+                node_embedding_layers.append(th.nn.LeakyReLU(0.2))
                 edge_embedding_layers.append(Linear(-1, out_dim))
-                edge_embedding_layers.append(th.nn.ReLU())
+                edge_embedding_layers.append(th.nn.LeakyReLU(0.2))
         self.node_embedding_net = th.nn.Sequential(*node_embedding_layers)\
             if len(node_embedding_layers) > 0\
             else lambda x: x
@@ -47,7 +55,40 @@ class GraphFeaturesExtractor(BaseFeaturesExtractor):
             else lambda x: x
 
     def _build_graph_net(self):
-        raise NotImplementedError
+        node_dims = list(self.config["node_dims"])
+        edge_dims = list(self.config["edge_dims"])
+        n_heads = self.config.get("n_heads", 1)
+        if isinstance(n_heads, int):
+            n_heads = [n_heads] * len(node_dims)
+        concat_heads = self.config.get("concat_heads", True)
+        self.graph_layers = []
+        self.edge_layers = []
+        
+        for idx, _ in enumerate(node_dims):
+            if self.graph_cls_name == "xfmr":
+                logging.info("Build Graph Transformer Layer")
+                self.graph_layers.append(TransformerConv(
+                    in_channels=-1,
+                    out_channels=node_dims[idx],
+                    heads=n_heads[idx],
+                    concat=concat_heads,
+                    edge_dim=-1,
+                ))
+            elif self.graph_cls_name == "gat":
+                logging.info("Build Graph Attention Layer")
+                self.graph_layers.append(GATv2Conv(
+                    in_channels=-1,
+                    out_channels=node_dims[idx],
+                    heads=n_heads[idx],
+                    concat=concat_heads,
+                    edge_dim=-1,
+                    add_self_loops=True,
+                    fill_value=0.0,
+                    negative_slope=0.2,
+                ))
+            self.add_module("graph_conv{}".format(idx), self.graph_layers[-1])
+            self.edge_layers.append(Linear(-1, edge_dims[idx]))
+            self.add_module("edge_linear{}".format(idx), self.edge_layers[-1])
     
     def preprocessing(self, data: Dict) -> Tuple[Graph, th.Tensor, th.Tensor]:
         data["edge_index"] = data["edge_index"].long()
@@ -73,77 +114,20 @@ class GraphFeaturesExtractor(BaseFeaturesExtractor):
     def forward(self, data: Dict) -> th.Tensor:
         graph, n_nodes, node_index_shift = self.preprocessing(data)
         
-        logits = self.graph_net(
-            x=self.node_embedding_net(graph.x),
-            edge_index=graph.edge_index,
-            edge_attr=self.edge_embedding_net(graph.edge_attr),
-        )
+        # embedding
+        x = self.node_embedding_net(graph.x)
+        edge_index = graph.edge_index
+        edge_attr = self.edge_embedding_net(graph.edge_attr)
         
-        logits = logits[node_index_shift]
-        return logits
-
-
-class GATFeaturesExtractor(GraphFeaturesExtractor):
-    def __init__(self, observation_space: spaces.Dict, config: Dict):
-        features_dim = config["node_dims"][-1]
-        if config.get("concat_heads", True):
-            n_heads = config.get("n_heads", 1)
-            if isinstance(n_heads, int):
-                n_heads = [n_heads]
-            features_dim *= n_heads[-1]
-        super().__init__(observation_space, config, features_dim)
-
-    # TODO: update edge_dim
-    def _build_graph_net(self):
-        logging.info("Building Graph Attention Networks")
-        node_dims = list(self.config["node_dims"])
-        n_heads = self.config.get("n_heads", 1)
-        if isinstance(n_heads, int):
-            n_heads = [n_heads] * len(node_dims)
-        concat_heads = self.config.get("concat_heads", True)
-        graph_layers = []
-        for n_dim, heads in zip(node_dims, n_heads):
-            graph_layers.append((GATv2Conv(
-                in_channels=-1,
-                out_channels=n_dim,
-                heads=heads,
-                edge_dim=-1,
-                fill_value=0.0,
-                add_self_loops=True,
-                concat=concat_heads,
-            ), "x, edge_index, edge_attr -> x"))
-            graph_layers.append((th.nn.LeakyReLU(), "x -> x"))
-        self.graph_net = Sequential("x, edge_index, edge_attr", graph_layers)
-
-
-class TransformerFeaturesExtractor(GraphFeaturesExtractor):
-    def __init__(self, observation_space: spaces.Dict, config: Dict):
-        features_dim = config["node_dims"][-1]
-        if config.get("concat_heads", True):
-            n_heads = config.get("n_heads", 1)
-            if isinstance(n_heads, int):
-                n_heads = [n_heads]
-            features_dim *= n_heads[-1]
-        super().__init__(observation_space, config, features_dim)
-
-    # TODO: update edge_dim
-    def _build_graph_net(self):
-        logging.info("Building Graph Transformer Networks")
-
-        node_dims = list(self.config["node_dims"])
-        n_heads = self.config.get("n_heads", 1)
-        if isinstance(n_heads, int):
-            n_heads = [n_heads] * len(node_dims)
-        concat_heads = self.config.get("concat_heads", True)
-        graph_layers = []
-
-        for n_dim, heads in zip(node_dims, n_heads):
-            graph_layers.append((TransformerConv(
-                in_channels=-1,
-                out_channels=n_dim,
-                heads=heads,
-                edge_dim=-1,
-                concat=concat_heads,
-            ), "x, edge_index, edge_attr -> x"))
-            graph_layers.append((th.nn.LeakyReLU(), "x -> x"))
-        self.graph_net = Sequential("x, edge_index, edge_attr", graph_layers)
+        # conv
+        for graph_l, edge_l in zip(self.graph_layers, self.edge_layers):
+            #edge_attr = edge_l(th.cat(
+            #    (edge_attr, x[edge_index[0]], x[edge_index[1]]), dim=-1))
+            edge_attr = edge_l(edge_attr)
+            edge_attr = F.leaky_relu(
+                edge_attr, negative_slope=self.negative_slope)
+            x = graph_l(x=x, edge_index=edge_index, edge_attr=edge_attr)
+            x = F.leaky_relu(x, negative_slope=self.negative_slope)
+        
+        x = x[node_index_shift]
+        return x

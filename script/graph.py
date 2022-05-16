@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 import argparse
 
 
-if __name__ == '__main__':    
+if __name__ == '__main__':
     with open(root_path.joinpath("config/graph.yaml"), "r") as fp:
         config = yaml.safe_load(fp)
     
@@ -32,27 +32,27 @@ if __name__ == '__main__':
     parser.add_argument("--n_neighbors", type=int)
     args = parser.parse_args()
     if args.graph_cls is not None:
-        config["graph"]["graph_cls"] = args.graph_cls
+        config["graph_cls"] = args.graph_cls
     config["env"]["observation"]["absolute"] = args.absolute
     if args.n_neighbors != None:
         config["graph"]["n_neighbors"] = args.n_neighbors
-    
-    graph_cls = dict(
-        xfmr=graph_sdc.graph_feature.TransformerFeaturesExtractor,
-        gat=graph_sdc.graph_feature.GATFeaturesExtractor,
-    )[config["graph"]["graph_cls"]]
     
     rl_cls_name = "PPO"
     rl_cls = PPO
     env_id = config["env_id"]
     
+    model_name = "{}_{}_knn_{}".format(
+        args.graph_cls,
+        "absolute" if args.absolute else "relative",
+        config["graph"]["n_neighbors"])
     train_config = config[rl_cls_name]["train"]
     model_config = config[rl_cls_name]["model"]
-    model_config["tensorboard_log"] = "tensorboard/{}_{}_knn_{}".format(
-        args.graph_cls, "absolute" if args.absolute else "relative", config["graph"]["n_neighbors"])
+    model_config["tensorboard_log"] = "tensorboard/{}".format(model_name)
     model_config["policy_kwargs"].update(dict(
-        features_extractor_class=graph_cls,
-        features_extractor_kwargs=dict(config=config["GAT"])
+        features_extractor_class=graph_sdc.graph_feature.GraphFeaturesExtractor,
+        features_extractor_kwargs=dict(
+            config=config[config["graph_cls"]],
+            graph_cls_name=config["graph_cls"],)
     ))
     model_config["tensorboard_log"] = root_path.joinpath(model_config["tensorboard_log"]).resolve()
     pprint(config)
@@ -82,3 +82,4 @@ if __name__ == '__main__':
         total_timesteps=train_config["total_timesteps"],
         callback=callback,
     )
+    model.save(root_path.joinpath("model/{}.pkl".format(model_name)))

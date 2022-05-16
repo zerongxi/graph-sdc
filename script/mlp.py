@@ -30,10 +30,11 @@ if __name__ == '__main__':
     rl_cls = PPO
     env_id = config["env_id"]
     
+    model_name = "MLP_{}".format(
+        "absolute" if args.absolute else "relative")
     train_config = config[rl_cls_name]["train"]
     model_config = config[rl_cls_name]["model"]
-    model_config["tensorboard_log"] = "tensorboard/MLP_{}".format(
-        "absolute" if args.absolute else "relative")
+    model_config["tensorboard_log"] = "tensorboard/{}".format(model_name)
     model_config["tensorboard_log"] = root_path.joinpath(model_config["tensorboard_log"]).resolve()
     pprint(config)
     
@@ -60,3 +61,4 @@ if __name__ == '__main__':
         total_timesteps=train_config["total_timesteps"],
         callback=callback,
     )
+    model.save(root_path.joinpath("model/{}.pkl".format(model_name)))
