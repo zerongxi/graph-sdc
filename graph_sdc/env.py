@@ -93,21 +93,33 @@ class GraphEnv(gym.Env):
             x=spaces.Box(
                 low=-np.inf,
                 high=np.inf,
-                shape=(n_nodes, node_attr.shape[1] + 1),
-                dtype=np.float32,
+                shape=(n_nodes, node_attr.shape[1]),
+                dtype=float,
+            ),
+            x_valid=spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(n_nodes,),
+                dtype=float,
             ),
             edge_index=spaces.Box(
                 low=0,
                 high=n_nodes - 1,
-                shape=(2 + 1, n_edges),
-                dtype=np.float32,
+                shape=(2, n_edges),
+                dtype=float,
             ),
             edge_attr=spaces.Box(
                 low=-np.inf,
                 high=np.inf,
-                shape=(n_edges, edge_attr.shape[1] + 1),
-                dtype=np.float32,
-            )
+                shape=(n_edges, edge_attr.shape[1]),
+                dtype=float,
+            ),
+            edge_valid=spaces.Box(
+                low=0,
+                high=n_nodes - 1,
+                shape=(n_edges,),
+                dtype=float,
+            ),
         ))
 
     def raw2graph(self, obs: np.ndarray) -> Graph:
@@ -118,28 +130,36 @@ class GraphEnv(gym.Env):
         n_edges = graph.edge_attr.shape[0]
 
         x = th.zeros(self.observation_space["x"].shape, dtype=th.float32)
-        x[:n_nodes, 0] = 1
-        x[:n_nodes, 1:] = graph.x
+        x[:n_nodes] = graph.x
+        
+        x_valid = th.zeros(
+            self.observation_space["x_valid"].shape,
+            dtype=th.float32)
+        x_valid[:n_nodes] = 1.0
 
         edge_index = th.zeros(
             self.observation_space["edge_index"].shape,
-            dtype=th.float32,
-        )
-        edge_index[0, :n_edges] = 1
-        edge_index[1:, :n_edges] = graph.edge_index
+            dtype=th.float32)
+        edge_index[:, :n_edges] = graph.edge_index
 
         edge_attr = th.zeros(
             self.observation_space["edge_attr"].shape,
-            dtype=th.float32
-        )
-        edge_attr[:n_edges, 0] = 1
-        edge_attr[:n_edges, 1:] = graph.edge_attr
+            dtype=th.float32)
+        edge_attr[:n_edges] = graph.edge_attr
+        
+        edge_valid = th.zeros(
+            self.observation_space["edge_valid"].shape,
+            dtype=th.float32)
+        edge_valid[:n_edges] = 1.0
 
-        return dict(
-            x=x,
+        ret = dict(
+            x=x.numpy(),
+            x_valid=x_valid,
             edge_index=edge_index,
-            edge_attr=edge_attr,
+            edge_attr=edge_attr.numpy(),
+            edge_valid=edge_valid,
         )
+        return ret
 
     def step(self, action: int) -> Tuple[Dict, float, bool, Optional[Dict]]:
         obs, reward, done, info = self.env.step(action)

@@ -63,7 +63,7 @@ class GraphFeaturesExtractor(BaseFeaturesExtractor):
         concat_heads = self.config.get("concat_heads", True)
         self.graph_layers = []
         self.edge_layers = []
-        
+
         for idx, _ in enumerate(node_dims):
             if self.graph_cls_name == "xfmr":
                 logging.info("Build Graph Transformer Layer")
@@ -89,45 +89,42 @@ class GraphFeaturesExtractor(BaseFeaturesExtractor):
             self.add_module("graph_conv{}".format(idx), self.graph_layers[-1])
             self.edge_layers.append(Linear(-1, edge_dims[idx]))
             self.add_module("edge_linear{}".format(idx), self.edge_layers[-1])
-    
+
     def preprocessing(self, data: Dict) -> Tuple[Graph, th.Tensor, th.Tensor]:
         data["edge_index"] = data["edge_index"].long()
-
         # remove invalid nodes/edges
         graph = []
-        for x, edge_index, edge_attr in\
-                zip(data["x"], data["edge_index"], data["edge_attr"]):
-            x_valid = x[:, 0].bool()
-            edge_index_valid = edge_index[0, :].bool()
-            edge_attr_valid = edge_attr[:, 0].bool()
+        for x, x_valid, edge_index, edge_attr, edge_valid in zip(
+                data["x"], data["x_valid"], data["edge_index"],
+                data["edge_attr"], data["edge_valid"]):
             graph.append(Graph(
-                x=x[x_valid, 1:],
-                edge_index=edge_index[1:, edge_index_valid],
-                edge_attr=edge_attr[edge_attr_valid, 1:],
+                x=x[x_valid.bool()],
+                edge_index=edge_index[:, edge_valid.bool()],
+                edge_attr=edge_attr[edge_valid.bool()],
             ))
         graph, n_nodes, node_index_shift = combine_graphs(graph)
         n_nodes = th.tensor(n_nodes, dtype=th.long)
         node_index_shift = th.tensor(node_index_shift, dtype=th.long)
-        return graph, n_nodes, node_index_shift        
+        return graph, n_nodes, node_index_shift
 
-    #TODO: update pooling method
+    # TODO: update pooling method
     def forward(self, data: Dict) -> th.Tensor:
         graph, n_nodes, node_index_shift = self.preprocessing(data)
-        
+
         # embedding
         x = self.node_embedding_net(graph.x)
         edge_index = graph.edge_index
         edge_attr = self.edge_embedding_net(graph.edge_attr)
-        
+
         # conv
         for graph_l, edge_l in zip(self.graph_layers, self.edge_layers):
-            #edge_attr = edge_l(th.cat(
+            # edge_attr = edge_l(th.cat(
             #    (edge_attr, x[edge_index[0]], x[edge_index[1]]), dim=-1))
             edge_attr = edge_l(edge_attr)
             edge_attr = F.leaky_relu(
                 edge_attr, negative_slope=self.negative_slope)
             x = graph_l(x=x, edge_index=edge_index, edge_attr=edge_attr)
             x = F.leaky_relu(x, negative_slope=self.negative_slope)
-        
+
         x = x[node_index_shift]
         return x
