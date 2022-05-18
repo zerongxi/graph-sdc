@@ -1,7 +1,7 @@
 ---
 env_id: highway-v0
 n_envs: &_n_envs 12
-gamma: &_gamma 0.9
+gamma: &_gamma 0.95
 enable_venv_subprocess: &_enable_venv_subprocess True
 
 env:
@@ -21,17 +21,20 @@ env:
     normalize: True
   action:
     type: DiscreteMetaAction
-    target_speeds: [20, 22, 24, 26, 28, 30]
+    target_speeds: [16, 18, 20, 22, 24, 26, 28, 30]
   disable_collision_checks: True
   ego_spacing: 2.0
   duration: 100
   policy_frequency: 2
   simulation_frequency: 5
-  vehicles_count: 100
+  vehicles_count: 80
   lanes_count: 5
-  vehicles_density: 2
+  vehicles_density: 1.5
   offroad_terminal: True
   reward_speed_range: [20, 30]
+  high_speed_reward: 3.6
+  right_lane_reward: 0.4
+  collison_reward: -1.0
 
 PPO:
   model:
@@ -46,7 +49,7 @@ PPO:
     # tensorboard_log: tensorboard/MLP_relative
     verbose: 2
   train:
-    total_timesteps: 200000
+    total_timesteps: 300000
     n_train_envs: *_n_envs
     n_eval_envs: *_n_envs
     eval_timesteps: 6000

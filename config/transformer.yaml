@@ -41,12 +41,12 @@ PPO:
     n_steps: 256
     n_epochs: 15
     learning_rate: 0.0003
-    policy: MultiInputPolicy  # MlpPolicy
+    policy: MlpPolicy
     policy_kwargs:
       net_arch: [{pi: [128, 128], vf: [128, 128]}]
     batch_size: 64
     gamma: *_gamma
-    # tensorboard_log: temp #tensorboard/Transformer_absolute
+    # tensorboard_log: tensorboard/MLP_relative
     verbose: 2
   train:
     total_timesteps: 300000
@@ -55,24 +55,12 @@ PPO:
     eval_timesteps: 6000
     n_eval_episodes: *_n_envs
 
-graph_cls: gat  # {xfmr, gat}
-graph:
-  # exactly one of {n_neighbors, radius} should be set and the other should be
-  # null.
-  n_neighbors: 6
-  observation_features: *_observation_features
-
-gat:
-  embedding_dims: [32]
-  node_dims: [32, 32, 32]
-  n_heads: 4  # default = 1
-  edge_dims: [64, 64, 64]
-  concat_heads: True  # If set to False, the multi-head attentions are averaged instead of concatenated.
-
-xfmr:
-  embedding_dims: [32]
-  node_dims: [32, 32, 32]
-  n_heads: 4  # default = 1
-  edge_dims: [64, 64, 64]
-  concat_heads: True  # If set to False, the multi-head attentions are averaged instead of concatenated.
+transformer:
+  embedding_layer_kwargs:
+    in_size: 7
+    layer_sizes: [32, 32]
+    reshape: False
+  attention_layer_kwargs:
+    feature_size: 32
+    heads: 4
 ...
