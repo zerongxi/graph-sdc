@@ -15,9 +15,9 @@ from graph_sdc.graph_util import build_graph
 from graph_sdc.util import linear_map
 
 
-class HighwayEnv(gym.Env):
-    def __init__(self, env_id: str, config: Dict) -> None:
-        logging.info("Use customized highway environment")
+class HighwayEnvWrapper(gym.ObservationWrapper):
+    def __init__(self, env: gym.Env, config: Dict):
+        logging.info("Using HighwayEnvWrapper")
         config = deepcopy(config)
         self.config = deepcopy(config)
         self.normalize = config["observation"].get("normalize", True)
@@ -30,14 +30,11 @@ class HighwayEnv(gym.Env):
         })
         self.clip = config["observation"].get("clip", False)
         self.absolute = config["observation"].get("absolute", False)
-
-        self.env = gym.make(env_id)
-        config["observation"]["normalize"] = False
-        self.env.configure(config)
-        self.env.reset()
         
-        self.observation_space = self.env.observation_space
-        self.action_space = self.env.action_space
+        config["observation"]["normalize"] = False
+        env.configure(config)
+        env.reset()
+        super().__init__(env)
 
     def normalize_obs(self, obs: Dict) -> Dict:
         for feat in self.features_range:
@@ -52,7 +49,7 @@ class HighwayEnv(gym.Env):
         obs["x"][0] = 0.0
         return obs
     
-    def observe(self, obs: np.ndarray) -> np.ndarray:
+    def observation(self, obs: np.ndarray) -> np.ndarray:
         obs_dict = dict(zip(self.features, obs.T))
         obs_dict = self.shift_obs(obs_dict)
         if self.normalize:
@@ -60,24 +57,14 @@ class HighwayEnv(gym.Env):
         obs = [obs_dict[k] for k in self.features]
         obs = np.stack(obs, axis=1)
         return obs
-    
-    def reset(self):
-        obs = self.env.reset()
-        obs = self.observe(obs)
-        return obs
-    
-    def step(self, action):
-        obs, reward, done, info = self.env.step(action)
-        obs = self.observe(obs)
-        return obs, reward, done, info
 
 
-
-class GraphEnv(gym.Env):
-    def __init__(self, env: gym.Env, config: Dict) -> None:
+class GraphEnvWrapper(gym.ObservationWrapper):
+    def __init__(self, env: gym.Env, config:Dict):
+        logging.info("Using GraphEnvWrapper")
+        super().__init__(env)
         self.features = config["observation_features"]
         self.n_neighbors = config["n_neighbors"]
-        self.env = env
 
         obs = th.tensor(self.env.reset(), dtype=th.float32)
         vehicle2d = obs2vehicle2d(obs, config["observation_features"])
@@ -85,9 +72,7 @@ class GraphEnv(gym.Env):
         edge_attr = get_edge_attr(vehicle2d, [[0], [0]])
         n_nodes = obs.shape[0]
         n_edges = n_nodes * config["n_neighbors"]
-
-        self.action_space = self.env.action_space
-
+        
         # 1st feature for each node/edge is reserved for valid flag
         self.observation_space = spaces.Dict(dict(
             x=spaces.Box(
@@ -122,7 +107,7 @@ class GraphEnv(gym.Env):
             ),
         ))
 
-    def raw2graph(self, obs: np.ndarray) -> Graph:
+    def observation(self, obs: np.ndarray) -> Graph:
         obs = th.tensor(obs, dtype=th.float32)
         vehicle2d = obs2vehicle2d(obs=obs, features=self.features)
         graph = build_graph(nodes=vehicle2d, n_neighbors=self.n_neighbors)
@@ -153,20 +138,10 @@ class GraphEnv(gym.Env):
         edge_valid[:n_edges] = 1.0
 
         ret = dict(
-            x=x.numpy(),
+            x=x,
             x_valid=x_valid,
             edge_index=edge_index,
-            edge_attr=edge_attr.numpy(),
+            edge_attr=edge_attr,
             edge_valid=edge_valid,
         )
         return ret
-
-    def step(self, action: int) -> Tuple[Dict, float, bool, Optional[Dict]]:
-        obs, reward, done, info = self.env.step(action)
-        obs = self.raw2graph(obs)
-        return obs, reward, done, info
-
-    def reset(self) -> Dict:
-        obs = self.env.reset()
-        obs = self.raw2graph(obs)
-        return obs

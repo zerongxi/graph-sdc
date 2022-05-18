@@ -7,7 +7,7 @@ import highway_env
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecEnv, DummyVecEnv, SubprocVecEnv
 
-from graph_sdc.env import GraphEnv, HighwayEnv
+from graph_sdc.env import GraphEnvWrapper, HighwayEnvWrapper
 
 
 def make_highway_env(
@@ -15,15 +15,11 @@ def make_highway_env(
     env_config: Dict,
     graph_config: Optional[Dict] = None
 ) -> gym.Env:
+    env = gym.make(env_id)
     if env_id.startswith("highway"):
-        env = HighwayEnv(env_id, env_config)
-    else:
-        env = gym.make(env_id)
-        env.configure(env_config)
-        env.reset()
+        env = HighwayEnvWrapper(env, env_config)
     if graph_config is not None:
-        logging.info("Convert highway env to graph env")
-        env = GraphEnv(env, graph_config)
+        env = GraphEnvWrapper(env, graph_config)
     return env
 
 
