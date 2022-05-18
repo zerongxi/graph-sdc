@@ -1,50 +1,54 @@
 ---
 env_id: highway-v0
 n_envs: &_n_envs 12
-gamma: &_gamma 0.98
+gamma: &_gamma 0.9
 enable_venv_subprocess: &_enable_venv_subprocess True
 
 env:
   observation:
     type: Kinematics
     features: &_observation_features
-      [presence, x, y, vx, vy, cos_h, sin_h, heading]
+      [presence, x, y, vx, vy, cos_h, sin_h]
     features_range:
       x: [0, 100]
       y: [0, 100]
       vx: [20, 30]
       vy: [0, 10]
-    vehicles_count: 40
+    vehicles_count: 30
     order: sorted
     sea_behind: True
     # absolute: True
     normalize: True
   action:
-    type: ContinuousAction
-  duration: 300
-  policy_frequency: 10
-  simulation_frequency: 10
+    type: DiscreteMetaAction
+    target_speeds: [20, 22, 24, 26, 28, 30]
+  disable_collision_checks: True
+  ego_spacing: 2.0
+  duration: 100
+  policy_frequency: 2
+  simulation_frequency: 5
   vehicles_count: 100
-  lanes_count: 6
+  lanes_count: 5
   vehicles_density: 2
   offroad_terminal: True
+  reward_speed_range: [20, 30]
 
 PPO:
   model:
+    n_steps: 256
+    n_epochs: 15
+    learning_rate: 0.0003
     policy: MlpPolicy
     policy_kwargs:
       net_arch: [{pi: [128, 128, 128, 128], vf: [128, 128, 128, 128]}]
-    n_steps: 512
     batch_size: 64
-    n_epochs: 10
-    learning_rate: 0.0003
     gamma: *_gamma
     # tensorboard_log: tensorboard/MLP_relative
     verbose: 2
   train:
-    total_timesteps: 1000000
+    total_timesteps: 200000
     n_train_envs: *_n_envs
     n_eval_envs: *_n_envs
-    eval_timesteps: 18000
+    eval_timesteps: 6000
     n_eval_episodes: *_n_envs
 ...

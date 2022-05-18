@@ -6,7 +6,7 @@ from gym import spaces
 import torch as th
 from torch.nn import functional as F
 
-from torch_geometric.nn import Sequential, Linear, GATv2Conv, TransformerConv
+from torch_geometric.nn import Sequential, Linear, BatchNorm, GATv2Conv, TransformerConv
 from torch_geometric.data import Data as Graph
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
@@ -31,7 +31,7 @@ class GraphFeaturesExtractor(BaseFeaturesExtractor):
             features_dim=features_dim,
         )
         self.config = config
-        self.negative_slope = self.config.get("negative_slope", 0.2)
+        self.negative_slope = self.config.get("negative_slope", 0.01)
         self.graph_cls_name = graph_cls_name
         self._build_embedding_net()
         self._build_graph_net()
@@ -40,13 +40,15 @@ class GraphFeaturesExtractor(BaseFeaturesExtractor):
         embedding_dims = self.config.get("embedding_dims", None)
         node_embedding_layers = []
         edge_embedding_layers = []
+        node_embedding_layers.append(BatchNorm(6, momentum=0.02))
+        edge_embedding_layers.append(BatchNorm(7, momentum=0.02))
         if embedding_dims is not None:
             logging.info("Building Embedding Network")
             for out_dim in embedding_dims:
                 node_embedding_layers.append(Linear(-1, out_dim))
-                node_embedding_layers.append(th.nn.LeakyReLU(0.2))
+                node_embedding_layers.append(th.nn.LeakyReLU(self.negative_slope))
                 edge_embedding_layers.append(Linear(-1, out_dim))
-                edge_embedding_layers.append(th.nn.LeakyReLU(0.2))
+                edge_embedding_layers.append(th.nn.LeakyReLU(self.negative_slope))
         self.node_embedding_net = th.nn.Sequential(*node_embedding_layers)\
             if len(node_embedding_layers) > 0\
             else lambda x: x
@@ -118,9 +120,9 @@ class GraphFeaturesExtractor(BaseFeaturesExtractor):
 
         # conv
         for graph_l, edge_l in zip(self.graph_layers, self.edge_layers):
-            # edge_attr = edge_l(th.cat(
-            #    (edge_attr, x[edge_index[0]], x[edge_index[1]]), dim=-1))
-            edge_attr = edge_l(edge_attr)
+            edge_attr = edge_l(th.cat(
+                (edge_attr, x[edge_index[0]], x[edge_index[1]]), dim=-1))
+            # edge_attr = edge_l(edge_attr)
             edge_attr = F.leaky_relu(
                 edge_attr, negative_slope=self.negative_slope)
             x = graph_l(x=x, edge_index=edge_index, edge_attr=edge_attr)

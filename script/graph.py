@@ -33,7 +33,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.graph_cls is not None:
         config["graph_cls"] = args.graph_cls
-    config["env"]["observation"]["absolute"] = args.absolute
+    if args.absolute is not None:
+        config["env"]["observation"]["absolute"] = args.absolute
     if args.n_neighbors != None:
         config["graph"]["n_neighbors"] = args.n_neighbors
     

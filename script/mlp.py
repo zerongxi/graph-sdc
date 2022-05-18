@@ -24,7 +24,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--absolute", action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
-    config["env"]["observation"]["absolute"] = args.absolute
+    if args.absolute is not None:
+        config["env"]["observation"]["absolute"] = args.absolute
     
     rl_cls_name = "PPO"
     rl_cls = PPO
