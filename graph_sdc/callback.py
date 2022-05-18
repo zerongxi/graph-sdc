@@ -42,11 +42,14 @@ class EvalCallback(BaseCallback):
         reward_mean = np.mean(rewards)
         reward_std = np.std(rewards)
         length_mean = np.mean(lengths)
-        logging.info("len: {:.0f}, mean: {:.2f}, std: {:.2f}".format(
-            length_mean, reward_mean, reward_std))
+        step_rewards = np.mean(np.sum(rewards) / np.sum(lengths))
+        logging.info("len: {:.0f}, mean: {:.2f}, std: {:.2f}, step_rew: {:.2f}".format(
+            length_mean, reward_mean, reward_std, step_rewards))
         self.model.logger.record("eval/ep_length_mean", length_mean)
-        self.model.logger.record("eval/ep_reward_std", reward_std)
+        # self.model.logger.record("eval/ep_reward_std", reward_std)
         self.model.logger.record("eval/ep_reward_mean", reward_mean)
+        self.model.logger.record("eval/step_reward_mean", step_rewards)
+        self.model.logger.dump(step=self.num_timesteps)
         if self.csv_path is not None:
             df = pd.DataFrame(
                 [[self.next_eval, reward_mean, reward_std]],
