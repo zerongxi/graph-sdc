@@ -43,9 +43,13 @@ if __name__ == '__main__':
     env_id = config["env_id"]
     
     model_name = "{}_{}_knn_{}".format(
-        args.graph_cls,
+        config["graph_cls"],
         "absolute" if args.absolute else "relative",
         config["graph"]["n_neighbors"])
+    root_path.joinpath("model/").mkdir(parents=True, exist_ok=True)
+    with open(root_path.joinpath("model/{}.yaml".format(model_name)), "w") as fp:
+        yaml.safe_dump(config, fp)
+    
     train_config = config[rl_cls_name]["train"]
     model_config = config[rl_cls_name]["model"]
     model_config["tensorboard_log"] = "tensorboard/{}".format(model_name)
@@ -83,4 +87,4 @@ if __name__ == '__main__':
         total_timesteps=train_config["total_timesteps"],
         callback=callback,
     )
-    model.save(root_path.joinpath("model/{}.pkl".format(model_name)))
+    model.save(root_path.joinpath("model/{}.zip".format(model_name)))
