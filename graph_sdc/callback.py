@@ -29,6 +29,9 @@ class EvalCallback(BaseCallback):
         if self.csv_path is not None:
             self.csv_path.unlink(missing_ok=True)
             self.csv_path.parent.mkdir(parents=True, exist_ok=True)
+        if self.num_timesteps >= self.next_eval:
+            self._evaluate_policy()
+            self.next_eval += self.eval_timesteps
         return super()._init_callback()
     
     def _evaluate_policy(self) -> None:
