@@ -1,7 +1,7 @@
 ---
 env_id: highway-v0
 n_envs: &_n_envs 12
-gamma: &_gamma 0.95
+gamma: &_gamma 0.9
 enable_venv_subprocess: &_enable_venv_subprocess True
 
 env:
@@ -17,50 +17,50 @@ env:
     vehicles_count: 30
     order: sorted
     sea_behind: True
-    # absolute: True
+    absolute: True
     normalize: True
   action:
     type: DiscreteMetaAction
-    target_speeds: [16, 18, 20, 22, 24, 26, 28, 30]
+    target_speeds: [18, 20, 22, 24, 26, 28, 30]
   disable_collision_checks: True
   ego_spacing: 2.0
-  duration: 100
+  duration: 80
   policy_frequency: 2
-  simulation_frequency: 5
+  simulation_frequency: 10
   vehicles_count: 80
   lanes_count: 5
   vehicles_density: 1.5
   offroad_terminal: True
   reward_speed_range: [20, 30]
-  high_speed_reward: 3.6
-  right_lane_reward: 0.4
-  collison_reward: -1.0
+  high_speed_reward: 0.7
+  right_lane_reward: 0.1
+  collision_reward: -0.2
 
 PPO:
   model:
-    n_steps: 256
-    n_epochs: 15
+    n_steps: 384
+    n_epochs: 20
     learning_rate: 0.0003
     policy: MlpPolicy
     policy_kwargs:
-      net_arch: [{pi: [128, 128], vf: [128, 128]}]
+      net_arch: [{pi: [256, 256], vf: [256, 256]}]
     batch_size: 64
     gamma: *_gamma
     # tensorboard_log: tensorboard/MLP_relative
     verbose: 2
   train:
-    total_timesteps: 300000
+    total_timesteps: 500000
     n_train_envs: *_n_envs
     n_eval_envs: *_n_envs
-    eval_timesteps: 6000
+    eval_timesteps: 9000
     n_eval_episodes: *_n_envs
 
 transformer:
   embedding_layer_kwargs:
     in_size: 7
-    layer_sizes: [32, 32]
+    layer_sizes: [64, 64]
     reshape: False
   attention_layer_kwargs:
-    feature_size: 32
+    feature_size: 64  # need to be equal to the size of last embedding layer due to implementation
     heads: 4
 ...
