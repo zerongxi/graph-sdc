@@ -1,7 +1,9 @@
 import sys
 from pathlib import Path
+
+import gym
 sys.path.insert(0, str(Path(__file__).parents[1].resolve()))
-from graph_sdc.env import HighwayEnv
+from graph_sdc.env import HighwayEnvWrapper
 import unittest
 
 import numpy as np
@@ -29,7 +31,8 @@ class TestCase(unittest.TestCase):
     }
 
     def test_normalize_obs(self):
-        env = HighwayEnv(self.env_id, self.config)
+        env = gym.make(self.env_id)
+        env = HighwayEnvWrapper(env, self.config)
         obs = np.array([[0, 100, 10, 30, 3, 0, 0, 0]], dtype=float)
         obs_dict = dict(zip(self.config["observation"]["features"], obs.T))
         obs_dict = env.normalize_obs(obs_dict)
@@ -40,7 +43,8 @@ class TestCase(unittest.TestCase):
             obs_normalized, [[0, 1.0, 0.1, 1.5, 0.15, 0, 0, 0]])
 
     def test_shift_obs(self):
-        env = HighwayEnv(self.env_id, self.config)
+        env = gym.make(self.env_id)
+        env = HighwayEnvWrapper(env, self.config)
         obs = np.array([
             [0, 100, 10, 30, 3, 0, 0, 0],
             [0, 200, 10, 30, 3, 0, 0, 0]

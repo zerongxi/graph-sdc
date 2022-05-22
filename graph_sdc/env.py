@@ -1,5 +1,4 @@
 from copy import deepcopy
-from datetime import datetime
 import logging
 from typing import Dict, Optional, Tuple, Union
 import gym
@@ -63,8 +62,13 @@ class GraphEnvWrapper(gym.ObservationWrapper):
     def __init__(self, env: gym.Env, config:Dict):
         logging.info("Using GraphEnvWrapper")
         super().__init__(env)
+        self.config = config
         self.features = config["observation_features"]
         self.n_neighbors = config["n_neighbors"]
+        vx_range = config["observation_features_range"]["vx"]
+        x_range = config["observation_features_range"]["x"]
+        self.vel_scale = (vx_range[1] - vx_range[0]) /\
+            (x_range[1] - x_range[0])
 
         obs = th.tensor(self.env.reset(), dtype=th.float32)
         vehicle2d = obs2vehicle2d(obs, config["observation_features"])
@@ -109,8 +113,15 @@ class GraphEnvWrapper(gym.ObservationWrapper):
 
     def observation(self, obs: np.ndarray) -> Graph:
         obs = th.tensor(obs, dtype=th.float32)
-        vehicle2d = obs2vehicle2d(obs=obs, features=self.features)
-        graph = build_graph(nodes=vehicle2d, n_neighbors=self.n_neighbors)
+        vehicle2d = obs2vehicle2d(
+            obs=obs, features=self.config["observation_features"])
+        graph = build_graph(
+            nodes=vehicle2d,
+            n_neighbors=self.n_neighbors,
+            metric=self.config.get("metric", "default"),
+            vel_scale=self.vel_scale,
+            seconds=self.config.get("seconds", None),
+            n_waypoints=self.config.get("n_waypoints", None))
         n_nodes = graph.x.shape[0]
         n_edges = graph.edge_attr.shape[0]
 
