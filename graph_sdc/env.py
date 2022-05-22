@@ -122,8 +122,8 @@ class GraphEnvWrapper(gym.ObservationWrapper):
             vel_scale=self.vel_scale,
             seconds=self.config.get("seconds", None),
             n_waypoints=self.config.get("n_waypoints", None))
-        n_nodes = graph.x.shape[0]
-        n_edges = graph.edge_attr.shape[0]
+        n_nodes = graph.x.size(0)
+        n_edges = graph.edge_attr.size(0)
 
         x = th.zeros(self.observation_space["x"].shape, dtype=th.float32)
         x[:n_nodes] = graph.x
