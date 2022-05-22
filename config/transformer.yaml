@@ -9,32 +9,32 @@ env:
     type: Kinematics
     features: &_observation_features
       [presence, x, y, vx, vy, cos_h, sin_h]
-    features_range:
+    features_range: &_observation_features_range
       x: [0, 100]
       y: [0, 100]
       vx: [0, 20]
       vy: [0, 20]
-    vehicles_count: 30
+    vehicles_count: 25
     order: sorted
     sea_behind: False
     absolute: False
     normalize: True
   action:
     type: DiscreteMetaAction
-    target_speeds: [20, 23, 26, 29, 32, 35]
+    target_speeds: [20, 25, 30, 35, 40]
   disable_collision_checks: True
   ego_spacing: 2.0
-  duration: 60
+  duration: 100
   policy_frequency: 2
   simulation_frequency: 5
   vehicles_count: 80
   lanes_count: 5
   vehicles_density: 1.5
   offroad_terminal: True
-  reward_speed_range: [20, 35]
+  reward_speed_range: [20, 40]
   high_speed_reward: 0.7
-  right_lane_reward: 0.1
-  collision_reward: -0.2
+  right_lane_reward: 0.0
+  collision_reward: -0.3
 
 rl_cls: PPO  # {PPO, DQN}
 PPO:
