@@ -1,8 +1,9 @@
 import logging
 from optparse import Option
 from re import X
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from gym import spaces
+import numpy as np
 import torch as th
 from torch.nn import functional as F
 
@@ -40,8 +41,6 @@ class GraphFeaturesExtractor(BaseFeaturesExtractor):
         embedding_dims = self.config.get("embedding_dims", None)
         node_embedding_layers = []
         edge_embedding_layers = []
-        node_embedding_layers.append(BatchNorm(6, momentum=0.02))
-        edge_embedding_layers.append(BatchNorm(7, momentum=0.02))
         if embedding_dims is not None:
             logging.info("Building Embedding Network")
             for out_dim in embedding_dims:
@@ -120,9 +119,9 @@ class GraphFeaturesExtractor(BaseFeaturesExtractor):
 
         # conv
         for graph_l, edge_l in zip(self.graph_layers, self.edge_layers):
-            edge_attr = edge_l(th.cat(
-                (edge_attr, x[edge_index[0]], x[edge_index[1]]), dim=-1))
-            # edge_attr = edge_l(edge_attr)
+            # edge_attr = th.cat(
+            #     [edge_attr, x[edge_index[0]], x[edge_index[1]]], dim=-1)
+            edge_attr = edge_l(edge_attr)
             edge_attr = F.leaky_relu(
                 edge_attr, negative_slope=self.negative_slope)
             x = graph_l(x=x, edge_index=edge_index, edge_attr=edge_attr)

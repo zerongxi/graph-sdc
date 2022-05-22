@@ -105,13 +105,13 @@ def get_edge_attr(
     features = []
 
     xy_diff = nodes.xy[edge_index[0]] - nodes.xy[edge_index[1]]
-    features.append(xy_diff)
+    features.append(xy_diff * 2.0)
 
     distance = th.sqrt(th.sum(th.square(xy_diff), dim=1)).view(-1, 1)
-    features.append(distance)
+    features.append(distance * 2.0)
 
     vel_xy_diff = nodes.vel_xy[edge_index[0]] - nodes.vel_xy[edge_index[1]]
-    features.append(vel_xy_diff)
+    features.append(vel_xy_diff * 2.0)
 
     # TODO: calculate heading_xy with triangular formulas
     heading = None
