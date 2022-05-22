@@ -12,35 +12,37 @@ env:
     features_range:
       x: [0, 100]
       y: [0, 100]
-      vx: [20, 30]
-      vy: [0, 10]
+      vx: [0, 20]
+      vy: [0, 20]
     vehicles_count: 30
     order: sorted
-    sea_behind: True
-    absolute: True
+    sea_behind: False
+    absolute: False
     normalize: True
   action:
     type: DiscreteMetaAction
-    target_speeds: [18, 20, 22, 24, 26, 28, 30]
+    target_speeds: [20, 23, 26, 29, 32, 35]
   disable_collision_checks: True
   ego_spacing: 2.0
-  duration: 80
+  duration: 60
   policy_frequency: 2
-  simulation_frequency: 10
+  simulation_frequency: 5
   vehicles_count: 80
   lanes_count: 5
   vehicles_density: 1.5
   offroad_terminal: True
-  reward_speed_range: [20, 30]
+  reward_speed_range: [20, 35]
   high_speed_reward: 0.7
   right_lane_reward: 0.1
   collision_reward: -0.2
 
+rl_cls: PPO  # {PPO, DQN}
 PPO:
   model:
-    n_steps: 384
-    n_epochs: 20
+    n_steps: 512
+    n_epochs: 10
     learning_rate: 0.0003
+    target_kl: 0.2
     policy: MlpPolicy
     policy_kwargs:
       net_arch: [{pi: [256, 256], vf: [256, 256]}]
@@ -52,13 +54,33 @@ PPO:
     total_timesteps: 500000
     n_train_envs: *_n_envs
     n_eval_envs: *_n_envs
-    eval_timesteps: 9000
+    eval_timesteps: 10000
+    n_eval_episodes: *_n_envs
+
+DQN:
+  model:
+    learning_rate: 0.0005
+    policy: MlpPolicy
+    policy_kwargs:
+      net_arch: [256, 256]
+    batch_size: 128
+    buffer_size: 50000
+    learning_starts: 2000
+    gamma: *_gamma
+    train_freq: 1
+    gradient_steps: 1
+    target_update_interval: 1000
+  train:
+    total_timesteps: 500000
+    n_train_envs: *_n_envs
+    n_eval_envs: *_n_envs
+    eval_timesteps: 10000
     n_eval_episodes: *_n_envs
 
 transformer:
   embedding_layer_kwargs:
     in_size: 7
-    layer_sizes: [64, 64]
+    layer_sizes: [64, 64, 64]
     reshape: False
   attention_layer_kwargs:
     feature_size: 64  # need to be equal to the size of last embedding layer due to implementation

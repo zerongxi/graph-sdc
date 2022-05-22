@@ -1,6 +1,6 @@
 from pathlib import Path
 from pprint import pprint
-from stable_baselines3 import PPO
+from stable_baselines3 import DQN, PPO
 
 import yaml
 
@@ -22,17 +22,25 @@ if __name__ == '__main__':
     with open(root_path.joinpath("config/mlp.yaml"), "r") as fp:
         config = yaml.safe_load(fp)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--absolute", action=argparse.BooleanOptionalAction)
+    parser.add_argument("--absolute", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument("--lr", type=float, default=None)
     args = parser.parse_args()
     if args.absolute is not None:
         config["env"]["observation"]["absolute"] = args.absolute
-    
-    rl_cls_name = "PPO"
-    rl_cls = PPO
+    rl_cls_name = config["rl_cls"]
+    if args.lr is not None:
+        config[rl_cls_name]["model"]["learning_rate"] = args.lr
+
+    rl_cls = globals()[rl_cls_name]
     env_id = config["env_id"]
     
-    model_name = "MLP_{}".format(
-        "absolute" if args.absolute else "relative")
+    model_name = ["mlp"]
+    if args.absolute is not None:
+        model_name.append("absolute" if args.absolute else "ego-centric")
+    if args.lr is not None:
+        model_name.append("lr={:.1e}".format(args.lr))
+    model_name = "_".join(model_name)
+    
     root_path.joinpath("model/").mkdir(parents=True, exist_ok=True)
     with open(root_path.joinpath("model/{}.yaml".format(model_name)), "w") as fp:
         yaml.safe_dump(config, fp)

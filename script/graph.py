@@ -1,6 +1,6 @@
 from pathlib import Path
 from pprint import pprint
-from stable_baselines3 import PPO
+from stable_baselines3 import DQN, PPO
 import torch as th
 
 import yaml
@@ -25,11 +25,15 @@ import argparse
 if __name__ == '__main__':
     with open(root_path.joinpath("config/graph.yaml"), "r") as fp:
         config = yaml.safe_load(fp)
+
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--graph_cls", type=str)
-    parser.add_argument("--absolute", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--n_neighbors", type=int)
+    parser.add_argument("--graph_cls", type=str, default=None)
+    parser.add_argument("--absolute", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument("--n_neighbors", type=int, default=None)
+    parser.add_argument("--knn_metric", type=str, default=None)
+    parser.add_argument("--knn_seconds", type=float, default=None)
+    parser.add_argument("--lr", type=float, default=None)
     args = parser.parse_args()
     if args.graph_cls is not None:
         config["graph_cls"] = args.graph_cls
@@ -37,15 +41,31 @@ if __name__ == '__main__':
         config["env"]["observation"]["absolute"] = args.absolute
     if args.n_neighbors != None:
         config["graph"]["n_neighbors"] = args.n_neighbors
-    
-    rl_cls_name = "PPO"
-    rl_cls = PPO
+    if args.knn_metric is not None:
+        config["graph"]["metric"] = args.knn_metric
+    if args.knn_seconds is not None:
+        config["graph"]["seconds"] = args.knn_seconds
+        
+    rl_cls_name = config["rl_cls"]
+    if args.lr is not None:
+        config[rl_cls_name]["model"]["learning_rate"] = args.lr
+
+    rl_cls = globals()[rl_cls_name]
     env_id = config["env_id"]
     
-    model_name = "{}_{}_knn_{}".format(
-        config["graph_cls"],
-        "absolute" if args.absolute else "relative",
-        config["graph"]["n_neighbors"])
+    model_name = [config["graph_cls"]]
+    if args.absolute is not None:
+        model_name.append("absolute" if args.absolute else "ego-centric")
+    if args.n_neighbors is not None:
+        model_name.append("knn={}".format(args.n_neighbors))
+    if args.knn_metric is not None:
+        model_name.append("metric={}".format(args.knn_metric))
+    if args.knn_seconds is not None:
+        model_name.append("seconds={}".format(args.knn_seconds))
+    if args.lr is not None:
+        model_name.append("lr={:.1e}".format(args.lr))
+    model_name = "_".join(model_name)
+    
     root_path.joinpath("model/").mkdir(parents=True, exist_ok=True)
     with open(root_path.joinpath("model/{}.yaml".format(model_name)), "w") as fp:
         yaml.safe_dump(config, fp)
