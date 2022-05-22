@@ -23,7 +23,6 @@ def get_trajectory_dist(
     Returns:
         th.Tensor: th.long, [n_nodes, n_nodes]
     """
-    print("trajectory")
     n_nodes = coord.size(0)
     # [n_nodes, n_feats = 2]
     start_p = coord
@@ -60,7 +59,9 @@ def get_waypoint_dist(
     """
     print("waypoint")
     n_nodes = coord.size(0)
-    timestamps = th.linspace(0.0, seconds, n_waypoints + 1).view(-1, 1, 1)
+    timestamps = th.linspace(
+        0.0, seconds, n_waypoints + 1, device=coord.get_device()
+    ).view(-1, 1, 1)
     # [n_waypoints, n_nodes, n_feats = 2]
     waypoints = coord.view(1, n_nodes, 2) +\
         timestamps * velocity.view(1, n_nodes, 2)
@@ -111,8 +112,9 @@ def spacetime_knn_graph(
     
     topk = th.topk(dist, k=n_neighbors, dim=1, largest=False).indices
     indices_to = topk.view(-1)
-    indices_from = th.arange(0, n_nodes, dtype=th.long).unsqueeze(1).\
-        repeat(1, n_neighbors).view(-1)
+    indices_from = th.arange(
+        0, n_nodes, dtype=th.long, device=indices_to.get_device()
+    ).unsqueeze(1).repeat(1, n_neighbors).view(-1)
     
     return th.stack([indices_from, indices_to], dim=0)
 

@@ -120,6 +120,7 @@ def dist_between_lines_2d(line1: th.Tensor, line2: th.Tensor) -> th.Tensor:
     non_intersect_dist = th.stack(non_intersect_dist, dim=0)
     non_intersect_dist = th.min(non_intersect_dist, dim=0).values
     
-    dist = th.zeros((n_lines,), dtype=th.float)
+    dist = th.zeros(
+        (n_lines,), dtype=th.float, device=non_intersect_dist.get_device())
     dist[non_intersect] = non_intersect_dist
     return dist
