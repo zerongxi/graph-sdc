@@ -24,38 +24,38 @@ env:
     target_speeds: [20, 25, 30, 35, 40]
   disable_collision_checks: True
   ego_spacing: 2.0
-  duration: 100
+  duration: 60
   policy_frequency: 2
   simulation_frequency: 5
-  vehicles_count: 80
-  lanes_count: 5
-  vehicles_density: 1.5
+  vehicles_count: 100
+  lanes_count: 6
+  vehicles_density: 1.8
   offroad_terminal: True
   reward_speed_range: [20, 40]
-  high_speed_reward: 0.7
+  high_speed_reward: 0.8
   right_lane_reward: 0.0
-  collision_reward: -0.3
+  collision_reward: -0.2
 
 rl_cls: PPO  # {PPO, DQN}
 PPO:
   model:
     n_steps: 512
     n_epochs: 10
-    learning_rate: 0.0003
+    learning_rate: 0.0005
     target_kl: 0.2
+    batch_size: 64
     policy: MlpPolicy
     policy_kwargs:
       net_arch: [{pi: [256, 256], vf: [256, 256]}]
-    batch_size: 64
     gamma: *_gamma
     # tensorboard_log: tensorboard/MLP_relative
     verbose: 2
   train:
-    total_timesteps: 500000
+    total_timesteps: 600000
     n_train_envs: *_n_envs
     n_eval_envs: *_n_envs
     eval_timesteps: 10000
-    n_eval_episodes: *_n_envs
+    n_eval_episodes: 24
 
 DQN:
   model:
@@ -84,5 +84,5 @@ transformer:
     reshape: False
   attention_layer_kwargs:
     feature_size: 64  # need to be equal to the size of last embedding layer due to implementation
-    heads: 4
+    heads: 2
 ...
