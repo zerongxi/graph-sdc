@@ -7,6 +7,7 @@ import numpy as np
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import VecEnv
+from stable_baselines3.common.logger import KVWriter
 
 
 class EvalCallback(BaseCallback):
@@ -48,11 +49,15 @@ class EvalCallback(BaseCallback):
         step_rewards = np.mean(np.sum(rewards) / np.sum(lengths))
         logging.info("len: {:.0f}, mean: {:.2f}, std: {:.2f}, step_rew: {:.2f}".format(
             length_mean, reward_mean, reward_std, step_rewards))
-        self.model.logger.record("eval/ep_length_mean", length_mean)
-        # self.model.logger.record("eval/ep_reward_std", reward_std)
-        self.model.logger.record("eval/ep_reward_mean", reward_mean)
-        self.model.logger.record("eval/step_reward_mean", step_rewards)
-        self.model.logger.dump(step=self.num_timesteps)
+        
+        log_data = {
+            "eval/ep_length_mean": length_mean,
+            "eval/ep_reward_mean": reward_mean,
+            "eval/step_reward_mean": step_rewards,}
+        to_exclude = {k: None for k in log_data.keys()}
+        for _format in self.model.logger.output_formats:
+            if isinstance(_format, KVWriter):
+                _format.write(log_data, to_exclude, self.num_timesteps)
         if self.csv_path is not None:
             df = pd.DataFrame(
                 [[self.next_eval, reward_mean, reward_std]],
