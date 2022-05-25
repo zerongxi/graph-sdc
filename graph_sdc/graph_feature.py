@@ -1,13 +1,11 @@
 import logging
-from optparse import Option
 from re import X
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Tuple
 from gym import spaces
-import numpy as np
 import torch as th
 from torch.nn import functional as F
 
-from torch_geometric.nn import Sequential, Linear, BatchNorm, GATv2Conv, TransformerConv
+from torch_geometric.nn import Linear, GATv2Conv, TransformerConv
 from torch_geometric.data import Data as Graph
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
