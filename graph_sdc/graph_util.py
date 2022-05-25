@@ -1,4 +1,5 @@
-from typing import List, Optional, Sequence, Tuple
+from math import ceil
+from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import torch as th
 from torch_geometric.data import Data as Graph
@@ -11,7 +12,7 @@ from graph_sdc.util import dist_between_lines_2d
 def get_trajectory_dist(
     coord: th.Tensor,
     velocity: th.Tensor,
-    seconds: float,
+    config: Dict,
 ) -> th.Tensor:
     """Get distance between estimated trajectories.
 
@@ -23,6 +24,8 @@ def get_trajectory_dist(
     Returns:
         th.Tensor: th.long, [n_nodes, n_nodes]
     """
+    seconds = config["seconds"]
+    
     n_nodes = coord.size(0)
     # [n_nodes, n_feats = 2]
     start_p = coord
@@ -34,7 +37,6 @@ def get_trajectory_dist(
         view(2, 2, n_nodes * n_nodes)
     lines_to = lines.unsqueeze(-2).repeat(1, 1, n_nodes, 1).\
         view(2, 2, n_nodes * n_nodes)
-    #print(th.stack([lines_from, lines_to], dim=-1).permute((2, 3, 0, 1)))
     dist = dist_between_lines_2d(lines_from, lines_to)
     dist = dist.view(n_nodes, n_nodes)
     return dist
@@ -43,8 +45,7 @@ def get_trajectory_dist(
 def get_waypoint_dist(
     coord: th.Tensor,
     velocity: th.Tensor,
-    seconds: float,
-    n_waypoints: int,
+    config: Dict,
 ) -> th.Tensor:
     """Get distance between estimated waypoints.
 
@@ -57,18 +58,26 @@ def get_waypoint_dist(
     Returns:
         th.Tensor: th.long, [n_nodes, n_nodes]
     """
-    print("waypoint")
+    device = coord.device
+    seconds = config["seconds"]
+    sample_freq = config["sample_frequency"]
+    discount_factor = config["discount_factor"]
     n_nodes = coord.size(0)
-    timestamps = th.linspace(
-        0.0, seconds, n_waypoints + 1, device=coord.device
-    ).view(-1, 1, 1)
+    n_waypoints = int(ceil(seconds * sample_freq + 1))
+    sample_interval = 1.0 / sample_freq
+    # [n_waypoints,]
+    timestamps = th.arange(n_waypoints, device=device) * sample_interval
+    discount = th.full((n_waypoints,), discount_factor, device=device).\
+        pow(timestamps)
     # [n_waypoints, n_nodes, n_feats = 2]
     waypoints = coord.view(1, n_nodes, 2) +\
-        timestamps * velocity.view(1, n_nodes, 2)
+        timestamps.view(-1, 1, 1) * velocity.view(1, n_nodes, 2)
     
     # [n_waypoints, n_nodes, n_nodes, n_feats = 2]
     diff = waypoints.unsqueeze(2) - waypoints.unsqueeze(1)
+    # [n_waypoints, n_nodes, n_nodes]
     dist = th.linalg.vector_norm(diff, dim=-1)
+    dist = dist * discount.view(-1, 1, 1)
     dist = th.min(dist, dim=0).values
     return dist
 
@@ -78,8 +87,7 @@ def spacetime_knn_graph(
     coord: th.Tensor,
     velocity: th.Tensor,
     metric: str,
-    seconds: float,
-    n_waypoints: Optional[int] = None,
+    config: Dict,
     loop: bool = False,
 ) -> th.Tensor:
     """Build knn graph for self-driving scenario.
@@ -96,17 +104,13 @@ def spacetime_knn_graph(
     n_nodes = coord.size(0)
     n_neighbors = min(n_neighbors, n_nodes - int(not loop))
     if metric == "trajectory":
-        dist = get_trajectory_dist(
-            coord=coord,
-            velocity=velocity,
-            seconds=seconds)
+        metric_fn = get_trajectory_dist
     elif metric == "waypoint":
-        dist = get_waypoint_dist(
-            coord=coord,
-            velocity=velocity,
-            seconds=seconds,
-            n_waypoints=n_waypoints)
+        metric_fn = get_waypoint_dist
+    else:
+        raise ValueError("Unrecognizable distance metric")
     
+    dist = metric_fn(coord=coord, velocity=velocity, config=config)
     if not loop:
         dist.fill_diagonal_(th.inf)
     
@@ -124,8 +128,7 @@ def build_graph(
     n_neighbors: int,
     metric: str,
     vel_scale: float = 1.0,
-    seconds: Optional[float] = None,
-    n_waypoints: Optional[int] = None,
+    config: Dict = {},
     loop: bool = False,
 ) -> Graph:
     if metric == "default":
@@ -135,9 +138,8 @@ def build_graph(
             n_neighbors=n_neighbors,
             coord=nodes.xy,
             velocity=nodes.vel_xy * vel_scale,
-            seconds=seconds,
             metric=metric,
-            n_waypoints=n_waypoints,
+            config=config,
             loop=loop)
     
     node_attr = get_node_attr(nodes)

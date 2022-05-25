@@ -115,13 +115,13 @@ class GraphEnvWrapper(gym.ObservationWrapper):
         obs = th.tensor(obs, dtype=th.float32)
         vehicle2d = obs2vehicle2d(
             obs=obs, features=self.config["observation_features"])
+        graph_metric = self.config.get("metric", "default")
         graph = build_graph(
             nodes=vehicle2d,
             n_neighbors=self.n_neighbors,
-            metric=self.config.get("metric", "default"),
+            metric=graph_metric,
             vel_scale=self.vel_scale,
-            seconds=self.config.get("seconds", None),
-            n_waypoints=self.config.get("n_waypoints", None))
+            config=self.config.get(graph_metric, {}))
         n_nodes = graph.x.size(0)
         n_edges = graph.edge_attr.size(0)
 

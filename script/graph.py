@@ -22,10 +22,9 @@ logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 import argparse
 
 
-if __name__ == '__main__':
+def main():
     with open(root_path.joinpath("config/graph.yaml"), "r") as fp:
         config = yaml.safe_load(fp)
-
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--graph_cls", type=str, default=None)
@@ -34,6 +33,7 @@ if __name__ == '__main__':
     parser.add_argument("--knn_metric", type=str, default=None)
     parser.add_argument("--knn_seconds", type=float, default=None)
     parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--traj_discount_factor", type=float, default=None)
     args = parser.parse_args()
     if args.graph_cls is not None:
         config["graph_cls"] = args.graph_cls
@@ -44,7 +44,11 @@ if __name__ == '__main__':
     if args.knn_metric is not None:
         config["graph"]["metric"] = args.knn_metric
     if args.knn_seconds is not None:
-        config["graph"]["seconds"] = args.knn_seconds
+        config["graph"][config["graph"]["metric"]]["seconds"] =\
+            args.knn_seconds
+    if args.traj_discount_factor is not None:
+        config["graph"]["trajectory"]["discount_factor"] =\
+            args.traj_discount_factor
         
     rl_cls_name = config["rl_cls"]
     if args.lr is not None:
@@ -61,7 +65,9 @@ if __name__ == '__main__':
     if args.knn_metric is not None:
         model_name.append("metric={}".format(args.knn_metric))
     if args.knn_seconds is not None:
-        model_name.append("seconds={}".format(args.knn_seconds))
+        model_name.append("seconds={:.1f}".format(args.knn_seconds))
+    if args.traj_discount_factor is not None:
+        model_name.append("discount={:.1f}".format(args.traj_discount_factor))
     if args.lr is not None:
         model_name.append("lr={:.1e}".format(args.lr))
     model_name = "_".join(model_name)
@@ -108,3 +114,7 @@ if __name__ == '__main__':
         callback=callback,
     )
     model.save(root_path.joinpath("model/{}.zip".format(model_name)))
+
+
+if __name__ == '__main__':
+    main()
