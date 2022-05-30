@@ -1,6 +1,7 @@
 from pathlib import Path
 from pprint import pprint
 from stable_baselines3 import DQN, PPO
+from stable_baselines3.common.utils import get_linear_fn
 
 import yaml
 
@@ -23,10 +24,13 @@ if __name__ == '__main__':
         config = yaml.safe_load(fp)
     parser = argparse.ArgumentParser()
     parser.add_argument("--absolute", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument("--visible", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
     args = parser.parse_args()
     if args.absolute is not None:
         config["env"]["observation"]["absolute"] = args.absolute
+    if args.visible is not None:
+        config["env"]["observation"]["vehicles_count"] = args.visible + 1 # add self
     rl_cls_name = config["rl_cls"]
     if args.lr is not None:
         config[rl_cls_name]["model"]["learning_rate"] = args.lr
@@ -37,6 +41,8 @@ if __name__ == '__main__':
     model_name = ["mlp"]
     if args.absolute is not None:
         model_name.append("absolute" if args.absolute else "ego-centric")
+    if args.visible is not None:
+        model_name.append("visible={}".format(args.visible))
     if args.lr is not None:
         model_name.append("lr={:.1e}".format(args.lr))
     model_name = "_".join(model_name)
@@ -62,8 +68,12 @@ if __name__ == '__main__':
         env_config=config["env"],
         enable_subprocess=config["enable_venv_subprocess"],
     )
+    learning_rate = get_linear_fn(
+        train_config["lr_init"],
+        train_config["lr_final"],
+        train_config["lr_frac"])
     
-    model = rl_cls(**model_config, env=train_venv)
+    model = rl_cls(**model_config, env=train_venv, learning_rate=learning_rate)
     callback = graph_sdc.callback.EvalCallback(
         eval_timesteps=train_config["eval_timesteps"],
         eval_env=eval_venv,

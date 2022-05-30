@@ -1,6 +1,7 @@
 from pathlib import Path
 from pprint import pprint
 from stable_baselines3 import DQN, PPO
+from stable_baselines3.common.utils import get_linear_fn
 import torch as th
 
 import yaml
@@ -23,22 +24,32 @@ import argparse
 
 
 def main():
-    with open(root_path.joinpath("config/graph.yaml"), "r") as fp:
-        config = yaml.safe_load(fp)
-    
     parser = argparse.ArgumentParser()
+    parser.add_argument("--local", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--graph_cls", type=str, default=None)
     parser.add_argument("--absolute", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument("--visible", type=int, default=None)
     parser.add_argument("--n_neighbors", type=int, default=None)
     parser.add_argument("--knn_metric", type=str, default=None)
     parser.add_argument("--knn_seconds", type=float, default=None)
-    parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--traj_discount_factor", type=float, default=None)
+    parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--batch_size", type=int, default=None)
+    parser.add_argument("--step", type=int, default=None)
     args = parser.parse_args()
+    
+    config_path = "config/graph.yaml"
+    if args.local:
+        config_path = "config/local_test.yaml"
+    
+    with open(root_path.joinpath(config_path), "r") as fp:
+        config = yaml.safe_load(fp)
     if args.graph_cls is not None:
         config["graph_cls"] = args.graph_cls
     if args.absolute is not None:
         config["env"]["observation"]["absolute"] = args.absolute
+    if args.visible is not None:
+        config["env"]["observation"]["vehicles_count"] = args.visible + 1 # add self
     if args.n_neighbors != None:
         config["graph"]["n_neighbors"] = args.n_neighbors
     if args.knn_metric is not None:
@@ -53,13 +64,19 @@ def main():
     rl_cls_name = config["rl_cls"]
     if args.lr is not None:
         config[rl_cls_name]["model"]["learning_rate"] = args.lr
+    if args.batch_size is not None:
+        config[rl_cls_name]["model"]["batch_size"] = args.batch_size
+    if args.step is not None:
+        config[rl_cls_name]["model"]["n_steps"] = args.step
 
     rl_cls = globals()[rl_cls_name]
     env_id = config["env_id"]
     
     model_name = [config["graph_cls"]]
     if args.absolute is not None:
-        model_name.append("absolute" if args.absolute else "ego-centric")
+        model_name.append("global" if args.absolute else "ego-centric")
+    if args.visible is not None:
+        model_name.append("visible={}".format(args.visible))
     if args.n_neighbors is not None:
         model_name.append("knn={}".format(args.n_neighbors))
     if args.knn_metric is not None:
@@ -68,6 +85,10 @@ def main():
         model_name.append("seconds={:.1f}".format(args.knn_seconds))
     if args.traj_discount_factor is not None:
         model_name.append("discount={:.1f}".format(args.traj_discount_factor))
+    if args.step is not None:
+        model_name.append("step={}".format(args.step))
+    if args.batch_size is not None:
+        model_name.append("batch={}".format(args.batch_size))
     if args.lr is not None:
         model_name.append("lr={:.1e}".format(args.lr))
     model_name = "_".join(model_name)
@@ -102,8 +123,12 @@ def main():
         graph_config=config["graph"],
         enable_subprocess=config["enable_venv_subprocess"],
     )
+    learning_rate = get_linear_fn(
+        train_config["lr_init"],
+        train_config["lr_final"],
+        train_config["lr_frac"])
     
-    model = rl_cls(**model_config, env=train_venv)
+    model = rl_cls(**model_config, env=train_venv, learning_rate=learning_rate)
     callback = graph_sdc.callback.EvalCallback(
         eval_timesteps=train_config["eval_timesteps"],
         eval_env=eval_venv,
