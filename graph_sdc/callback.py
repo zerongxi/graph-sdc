@@ -55,9 +55,10 @@ class EvalCallback(BaseCallback):
             "eval/ep_reward_mean": reward_mean,
             "eval/step_reward_mean": step_rewards,}
         to_exclude = {k: None for k in log_data.keys()}
+        step = self.num_timesteps
         for _format in self.model.logger.output_formats:
             if isinstance(_format, KVWriter):
-                _format.write(log_data, to_exclude, self.num_timesteps)
+                _format.write(log_data, to_exclude, step)
         if self.csv_path is not None:
             df = pd.DataFrame(
                 [[self.next_eval, reward_mean, reward_std]],
