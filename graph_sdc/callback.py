@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from time import time
 import pandas as pd
 from typing import Optional, Sequence, Union
 import gym
@@ -37,6 +38,7 @@ class EvalCallback(BaseCallback):
     
     def _evaluate_policy(self) -> None:
         logging.info("Eval model at timestep {}".format(self.num_timesteps))
+        start_t = time()
         rewards, lengths = evaluate_policy(
             model=self.model,
             env=self.eval_env,
@@ -47,8 +49,11 @@ class EvalCallback(BaseCallback):
         reward_std = np.std(rewards)
         length_mean = np.mean(lengths)
         step_rewards = np.mean(np.sum(rewards) / np.sum(lengths))
-        logging.info("len: {:.0f}, mean: {:.2f}, std: {:.2f}, step_rew: {:.2f}".format(
-            length_mean, reward_mean, reward_std, step_rewards))
+        cost_time = time() - start_t
+        logging.info((
+            "len: {:.0f}, mean: {:.2f}, std: {:.2f}, step_rew: {:.2f}, "
+            "cost_time: {:.1f}s").format(
+                length_mean, reward_mean, reward_std, step_rewards, cost_time))
         
         log_data = {
             "eval/ep_length_mean": length_mean,
