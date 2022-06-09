@@ -16,6 +16,10 @@ def make_highway_env(
     graph_config: Optional[Dict] = None
 ) -> gym.Env:
     env = gym.make(env_id)
+    if env_config["observation"]["type"] != "Kinematics":
+        env.configure(env_config)
+        env.reset()
+        return env
     if env_id.startswith("highway"):
         env = HighwayEnvWrapper(env, env_config)
     if graph_config is not None:
