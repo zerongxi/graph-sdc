@@ -2,6 +2,7 @@ from math import ceil
 from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import torch as th
+from torch_cluster import radius_graph
 from torch_geometric.data import Data as Graph
 from torch_geometric.nn import knn_graph
 
@@ -19,7 +20,7 @@ def get_trajectory_dist(
     Args:
         coord (th.Tensor): th.float, [n_nodes, n_feats=2]
         velocity (th.Tensor): [n_poinst, n_feats=2]
-        seconds: seconds looking ahead
+        config (dict): {"seconds"}
 
     Returns:
         th.Tensor: th.long, [n_nodes, n_nodes]
@@ -52,8 +53,7 @@ def get_waypoint_dist(
     Args:
         coord (th.Tensor): th.float, [n_nodes, n_feats = 2]
         velocity (th.Tensor): [n_nodes, n_feats=2]
-        seconds: seconds looking ahead
-        n_waypoints: num of waypoints looking ahead
+        config (dict): {"seconds", "sample_frequency", "discount_factor"}
 
     Returns:
         th.Tensor: th.long, [n_nodes, n_nodes]
@@ -82,12 +82,28 @@ def get_waypoint_dist(
     return dist
 
 
-def spacetime_knn_graph(
-    n_neighbors: int,
+def get_euclidean_dist(coord: th.Tensor, **dummy) -> th.Tensor:
+    """Get distance between estimated waypoints.
+
+    Args:
+        coord (th.Tensor): th.float, [n_nodes, n_feats = 2]
+
+    Returns:
+        th.Tensor: th.long, [n_nodes, n_nodes]
+    """
+    # [n_nodes, n_nodes, n_feats= 2]
+    diff = coord.unsqueeze(1) - coord.unsqueeze(0)
+    dist = th.linalg.vector_norm(diff, dim=-1)
+    return dist
+
+
+def spacetime_graph(
     coord: th.Tensor,
     velocity: th.Tensor,
     metric: str,
     config: Dict,
+    n_neighbors: Optional[int] = None,
+    radius: Optional[float] = None,
     loop: bool = False,
 ) -> th.Tensor:
     """Build knn graph for self-driving scenario.
@@ -102,8 +118,11 @@ def spacetime_knn_graph(
         th.Tensor: th.long, [n_dims=2, n_edges]
     """
     n_nodes = coord.size(0)
-    n_neighbors = min(n_neighbors, n_nodes - int(not loop))
-    if metric == "trajectory":
+    device = coord.device
+    
+    if metric == "default":
+        metric_fn = get_euclidean_dist
+    elif metric == "trajectory":
         metric_fn = get_trajectory_dist
     elif metric == "waypoint":
         metric_fn = get_waypoint_dist
@@ -114,33 +133,45 @@ def spacetime_knn_graph(
     if not loop:
         dist.fill_diagonal_(th.inf)
     
-    topk = th.topk(dist, k=n_neighbors, dim=1, largest=False).indices
-    indices_to = topk.view(-1)
-    indices_from = th.arange(
-        0, n_nodes, dtype=th.long, device=indices_to.device
-    ).unsqueeze(1).repeat(1, n_neighbors).view(-1)
+    if radius is not None:
+        dist[dist > radius] = th.inf
     
-    return th.stack([indices_from, indices_to], dim=0)
+    if n_neighbors is not None:
+        n_neighbors = min(n_neighbors, n_nodes - int(not loop))
+        dist, indices_to = th.topk(dist, k=n_neighbors, dim=1, largest=False)
+    else:
+        n_neighbors = n_nodes
+        indices_to = th.arange(n_neighbors, device=device).unsqueeze(0).\
+            repeat(n_nodes, 1)
+    
+    indices_to = indices_to.view(-1)
+    indices_from = th.arange(n_nodes, device=device).unsqueeze(1).\
+        repeat(1, n_neighbors).view(-1) 
+    indices = th.stack([indices_from, indices_to], dim=0)
+    
+    dist = dist.view(-1)
+    indices = indices[:, th.isfinite(dist)]
+    
+    return indices
 
 
 def build_graph(
     nodes: Vehicle2D,
-    n_neighbors: int,
     metric: str,
     vel_scale: float = 1.0,
     config: Dict = {},
+    n_neighbors: Optional[int] = None,
+    radius: Optional[float] = None,
     loop: bool = False,
 ) -> Graph:
-    if metric == "default":
-        edge_index = knn_graph(nodes.xy, k=n_neighbors, loop=False)
-    else:
-        edge_index = spacetime_knn_graph(
-            n_neighbors=n_neighbors,
-            coord=nodes.xy,
-            velocity=nodes.vel_xy * vel_scale,
-            metric=metric,
-            config=config,
-            loop=loop)
+    edge_index = spacetime_graph(
+        n_neighbors=n_neighbors,
+        radius=radius,
+        coord=nodes.xy,
+        velocity=nodes.vel_xy * vel_scale,
+        metric=metric,
+        config=config,
+        loop=loop)
     
     node_attr = get_node_attr(nodes)
     edge_attr = get_edge_attr(nodes, edge_index)

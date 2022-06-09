@@ -29,11 +29,14 @@ def main():
     parser.add_argument("--graph_cls", type=str, default=None)
     parser.add_argument("--absolute", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--visible", type=int, default=None)
+    parser.add_argument("--density", type=float, default=None)
     parser.add_argument("--n_neighbors", type=int, default=None)
+    parser.add_argument("--radius", type=float, default=None)
     parser.add_argument("--knn_metric", type=str, default=None)
     parser.add_argument("--knn_seconds", type=float, default=None)
     parser.add_argument("--traj_discount_factor", type=float, default=None)
-    parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--lr_schedule", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument("--layers", type=int, default=None)
     parser.add_argument("--batch_size", type=int, default=None)
     parser.add_argument("--step", type=int, default=None)
     args = parser.parse_args()
@@ -50,8 +53,14 @@ def main():
         config["env"]["observation"]["absolute"] = args.absolute
     if args.visible is not None:
         config["env"]["observation"]["vehicles_count"] = args.visible + 1 # add self
-    if args.n_neighbors != None:
+    if args.density is not None:
+        config["env"]["vehicles_count"] = int(config["env"]["vehicles_count"]\
+            * args.density / config["env"]["vehicles_density"])
+        config["env"]["vehicles_density"] = args.density
+    if args.n_neighbors is not None:
         config["graph"]["n_neighbors"] = args.n_neighbors
+    if args.radius is not None:
+        config["graph"]["radius"] = args.radius
     if args.knn_metric is not None:
         config["graph"]["metric"] = args.knn_metric
     if args.knn_seconds is not None:
@@ -62,12 +71,21 @@ def main():
             args.traj_discount_factor
         
     rl_cls_name = config["rl_cls"]
-    if args.lr is not None:
-        config[rl_cls_name]["model"]["learning_rate"] = args.lr
     if args.batch_size is not None:
         config[rl_cls_name]["model"]["batch_size"] = args.batch_size
     if args.step is not None:
         config[rl_cls_name]["model"]["n_steps"] = args.step
+    if args.layers is not None:
+        config[config["graph_cls"]]["node_dims"] = [128] * args.layers
+        config[config["graph_cls"]]["edge_dims"] = [128] * args.layers
+        config[config["graph_cls"]]["embedding_dims"] = [128] * (4 - args.layers)
+    if args.lr_schedule is None or args.lr_schedule:
+        learning_rate = get_linear_fn(
+            config[rl_cls_name]["train"]["lr_init"],
+            config[rl_cls_name]["train"]["lr_final"],
+            config[rl_cls_name]["train"]["lr_frac"])
+    else:
+        learning_rate = config[rl_cls_name]["train"]["lr"]
 
     rl_cls = globals()[rl_cls_name]
     env_id = config["env_id"]
@@ -77,8 +95,15 @@ def main():
         model_name.append("global" if args.absolute else "ego-centric")
     if args.visible is not None:
         model_name.append("visible={}".format(args.visible))
+    if args.layers is not None:
+        model_name.append("layers={}".format(args.layers))
+    if args.density is not None:
+        model_name.append("density={}".format(args.density))
+    model_name.append("filter={}".format("radius" if config["graph"]["radius"] is not None else "knn"))
     if args.n_neighbors is not None:
         model_name.append("knn={}".format(args.n_neighbors))
+    if args.radius is not None:
+        model_name.append("radius={}".format(args.radius))
     if args.knn_metric is not None:
         model_name.append("metric={}".format(args.knn_metric))
     if args.knn_seconds is not None:
@@ -89,8 +114,8 @@ def main():
         model_name.append("step={}".format(args.step))
     if args.batch_size is not None:
         model_name.append("batch={}".format(args.batch_size))
-    if args.lr is not None:
-        model_name.append("lr={:.1e}".format(args.lr))
+    if args.lr_schedule is not None:
+        model_name.append("lr-schedule" if args.lr_schedule else "lr-no-schedule")
     model_name = "_".join(model_name)
     
     root_path.joinpath("model/").mkdir(parents=True, exist_ok=True)
@@ -123,10 +148,12 @@ def main():
         graph_config=config["graph"],
         enable_subprocess=config["enable_venv_subprocess"],
     )
+    """
     learning_rate = get_linear_fn(
         train_config["lr_init"],
         train_config["lr_final"],
         train_config["lr_frac"])
+    """
     
     model = rl_cls(**model_config, env=train_venv, learning_rate=learning_rate)
     callback = graph_sdc.callback.EvalCallback(
@@ -139,6 +166,9 @@ def main():
         callback=callback,
     )
     model.save(root_path.joinpath("model/{}.zip".format(model_name)))
+    train_venv.close()
+    eval_venv.close()
+
 
 
 if __name__ == '__main__':

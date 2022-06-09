@@ -64,18 +64,23 @@ class GraphEnvWrapper(gym.ObservationWrapper):
         super().__init__(env)
         self.config = config
         self.features = config["observation_features"]
-        self.n_neighbors = config["n_neighbors"]
         vx_range = config["observation_features_range"]["vx"]
         x_range = config["observation_features_range"]["x"]
         self.vel_scale = (vx_range[1] - vx_range[0]) /\
             (x_range[1] - x_range[0])
+        
+        self.n_neighbors = config.get("n_neighbors", None)
+        self.radius = config.get("radius", None)
+        if self.radius is not None:
+            self.radius /= x_range[1] - x_range[0]
 
         obs = th.tensor(self.env.reset(), dtype=th.float32)
         vehicle2d = obs2vehicle2d(obs, config["observation_features"])
         node_attr = get_node_attr(vehicle2d)
         edge_attr = get_edge_attr(vehicle2d, [[0], [0]])
         n_nodes = obs.shape[0]
-        n_edges = n_nodes * config["n_neighbors"]
+        n_edges = n_nodes - 1 if self.n_neighbors is None else self.n_neighbors
+        n_edges *= n_nodes
         
         # 1st feature for each node/edge is reserved for valid flag
         self.observation_space = spaces.Dict(dict(
@@ -119,6 +124,7 @@ class GraphEnvWrapper(gym.ObservationWrapper):
         graph = build_graph(
             nodes=vehicle2d,
             n_neighbors=self.n_neighbors,
+            radius=self.radius,
             metric=graph_metric,
             vel_scale=self.vel_scale,
             config=self.config.get(graph_metric, {}))
