@@ -8,16 +8,16 @@ env:
   observation:
     type: Kinematics
     features: &_observation_features
-      [presence, x, y, vx, vy, cos_h, sin_h]
+      [presence, x, y, vx, vy, cos_h, sin_h, heading]
     features_range: &_observation_features_range
       x: [0, 100]
       y: [0, 100]
       vx: [0, 20]
       vy: [0, 20]
-    vehicles_count: 25
+    vehicles_count: 33
     order: sorted
-    sea_behind: False
-    absolute: False
+    sea_behind: True
+    absolute: True
     normalize: True
   action:
     type: DiscreteMetaAction
@@ -36,75 +36,56 @@ env:
   right_lane_reward: 0.0
   collision_reward: -0.2
 
-rl_cls: PPO  # {PPO, DQN}
+rl_cls: PPO  # {PPO}
 PPO:
   model:
     n_steps: 512
     n_epochs: 10
-    learning_rate: 0.0005
     target_kl: 0.2
-    batch_size: 64
+    batch_size: 256
     policy: MultiInputPolicy #  MlpPolicy
     policy_kwargs:
       net_arch: [{pi: [256, 256], vf: [256, 256]}]
     gamma: *_gamma
     # tensorboard_log: temp #tensorboard/Transformer_absolute
-    verbose: 2
+    verbose: 0
   train:
     total_timesteps: 600000
     n_train_envs: *_n_envs
     n_eval_envs: *_n_envs
     eval_timesteps: 10000
     n_eval_episodes: 24
-
-DQN:
-  model:
-    learning_rate: 0.0005
-    policy: MultiInputPolicy  # MlpPolicy
-    policy_kwargs:
-      net_arch: [256, 256]
-    batch_size: 32
-    buffer_size: 50000
-    learning_starts: 2000
-    gamma: *_gamma
-    train_freq: 1
-    gradient_steps: 1
-    target_update_interval: 1000
-    exploration_fraction: 0.04
-  train:
-    total_timesteps: 500000
-    n_train_envs: *_n_envs
-    n_eval_envs: *_n_envs
-    eval_timesteps: 20000
-    n_eval_episodes: 24
-
+    lr_init: 0.001
+    lr_final: 0.0005
+    lr_frac: 0.4
 
 graph_cls: xfmr  # {xfmr, gat}
 graph:
   # exactly one of {n_neighbors, radius} should be set and the other should be
   # null.
-  n_neighbors: 4
+  n_neighbors: null
+  radius: null
   observation_features: *_observation_features
   observation_features_range: *_observation_features_range
   metric: "default"  # {"default", "trajectory", "waypoint"}
   trajectory:
-    seconds: 5.0
+    seconds: 1.0
   waypoint:
     seconds: 5.0
     sample_frequency: 4
-    discount_factor: 1.1
+    discount_factor: 2.0
 
 gat:
-  embedding_dims: [64, 64]
-  node_dims: [64, 64]
+  embedding_dims: [256, 256]
+  node_dims: [256, 256]
   n_heads: 2  # default = 1
-  edge_dims: [64, 64]
+  edge_dims: [256, 256]
   concat_heads: True  # If set to False, the multi-head attentions are averaged instead of concatenated.
 
 xfmr:
-  embedding_dims: [64, 64]
-  node_dims: [64, 64]
+  embedding_dims: [256, 256]
+  node_dims: [256, 256]
   n_heads: 2  # default = 1
-  edge_dims: [64, 64]
+  edge_dims: [256, 256]
   concat_heads: True  # If set to False, the multi-head attentions are averaged instead of concatenated.
 ...

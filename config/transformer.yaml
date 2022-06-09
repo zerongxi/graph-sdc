@@ -14,9 +14,9 @@ env:
       y: [0, 100]
       vx: [0, 20]
       vy: [0, 20]
-    vehicles_count: 25
+    vehicles_count: 33
     order: sorted
-    sea_behind: False
+    sea_behind: True
     absolute: False
     normalize: True
   action:
@@ -36,53 +36,35 @@ env:
   right_lane_reward: 0.0
   collision_reward: -0.2
 
-rl_cls: PPO  # {PPO, DQN}
+rl_cls: PPO  # {PPO}
 PPO:
   model:
     n_steps: 512
     n_epochs: 10
-    learning_rate: 0.0005
     target_kl: 0.2
-    batch_size: 64
+    batch_size: 256
     policy: MlpPolicy
     policy_kwargs:
       net_arch: [{pi: [256, 256], vf: [256, 256]}]
     gamma: *_gamma
     # tensorboard_log: tensorboard/MLP_relative
-    verbose: 2
+    verbose: 0
   train:
     total_timesteps: 600000
     n_train_envs: *_n_envs
     n_eval_envs: *_n_envs
     eval_timesteps: 10000
-    n_eval_episodes: 24
-
-DQN:
-  model:
-    learning_rate: 0.0005
-    policy: MlpPolicy
-    policy_kwargs:
-      net_arch: [256, 256]
-    batch_size: 128
-    buffer_size: 50000
-    learning_starts: 2000
-    gamma: *_gamma
-    train_freq: 1
-    gradient_steps: 1
-    target_update_interval: 1000
-  train:
-    total_timesteps: 500000
-    n_train_envs: *_n_envs
-    n_eval_envs: *_n_envs
-    eval_timesteps: 10000
     n_eval_episodes: *_n_envs
+    lr_init: 0.001
+    lr_final: 0.0005
+    lr_frac: 0.4
 
 transformer:
   embedding_layer_kwargs:
     in_size: 7
-    layer_sizes: [64, 64, 64]
+    layer_sizes: [256, 256, 256]
     reshape: False
   attention_layer_kwargs:
-    feature_size: 64  # need to be equal to the size of last embedding layer due to implementation
+    feature_size: 256  # need to be equal to the size of last embedding layer due to implementation
     heads: 2
 ...
