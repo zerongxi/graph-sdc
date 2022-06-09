@@ -25,12 +25,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--absolute", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--visible", type=int, default=None)
+    parser.add_argument("--density", type=float, default=None)
     parser.add_argument("--lr", type=float, default=None)
     args = parser.parse_args()
     if args.absolute is not None:
         config["env"]["observation"]["absolute"] = args.absolute
     if args.visible is not None:
         config["env"]["observation"]["vehicles_count"] = args.visible + 1 # add self
+    if args.density is not None:
+        config["env"]["vehicles_density"] = args.density
     rl_cls_name = config["rl_cls"]
     if args.lr is not None:
         config[rl_cls_name]["model"]["learning_rate"] = args.lr
@@ -40,9 +43,11 @@ if __name__ == '__main__':
     
     model_name = ["mlp"]
     if args.absolute is not None:
-        model_name.append("absolute" if args.absolute else "ego-centric")
+        model_name.append("global" if args.absolute else "ego-centric")
     if args.visible is not None:
         model_name.append("visible={}".format(args.visible))
+    if args.density is not None:
+        model_name.append("density={}".format(args.density))
     if args.lr is not None:
         model_name.append("lr={:.1e}".format(args.lr))
     model_name = "_".join(model_name)
@@ -84,3 +89,5 @@ if __name__ == '__main__':
         callback=callback,
     )
     model.save(root_path.joinpath("model/{}.zip".format(model_name)))
+    train_venv.close()
+    eval_venv.close()
