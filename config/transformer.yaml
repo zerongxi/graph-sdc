@@ -16,7 +16,7 @@ env:
       vy: [0, 20]
     vehicles_count: 33
     order: sorted
-    sea_behind: True
+    see_behind: True
     absolute: False
     normalize: True
   action:
@@ -62,9 +62,9 @@ PPO:
 transformer:
   embedding_layer_kwargs:
     in_size: 7
-    layer_sizes: [256, 256, 256]
+    layer_sizes: [192, 192, 192]
     reshape: False
   attention_layer_kwargs:
-    feature_size: 256  # need to be equal to the size of last embedding layer due to implementation
+    feature_size: 192  # need to be equal to the size of last embedding layer due to implementation
     heads: 2
 ...

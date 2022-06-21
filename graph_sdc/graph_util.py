@@ -2,9 +2,7 @@ from math import ceil
 from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import torch as th
-from torch_cluster import radius_graph
 from torch_geometric.data import Data as Graph
-from torch_geometric.nn import knn_graph
 
 from graph_sdc.data import Vehicle2D, get_node_attr, get_edge_attr
 from graph_sdc.util import dist_between_lines_2d

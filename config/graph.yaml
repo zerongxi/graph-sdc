@@ -16,7 +16,7 @@ env:
       vy: [0, 20]
     vehicles_count: 33
     order: sorted
-    sea_behind: True
+    see_behind: True
     absolute: True
     normalize: True
   action:
@@ -76,16 +76,16 @@ graph:
     discount_factor: 2.0
 
 gat:
-  embedding_dims: [256, 256]
-  node_dims: [256, 256]
+  embedding_dims: [128, 128]
+  node_dims: [128, 128]
   n_heads: 2  # default = 1
-  edge_dims: [256, 256]
+  edge_dims: [128, 128]
   concat_heads: True  # If set to False, the multi-head attentions are averaged instead of concatenated.
 
 xfmr:
-  embedding_dims: [256, 256]
-  node_dims: [256, 256]
+  embedding_dims: [128, 128]
+  node_dims: [128, 128]
   n_heads: 2  # default = 1
-  edge_dims: [256, 256]
+  edge_dims: [128, 128]
   concat_heads: True  # If set to False, the multi-head attentions are averaged instead of concatenated.
 ...

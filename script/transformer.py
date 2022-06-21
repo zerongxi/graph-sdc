@@ -332,26 +332,23 @@ from pprint import pprint
 from stable_baselines3 import DQN, PPO
 from stable_baselines3.common.utils import get_linear_fn
 import torch as th
-
 import yaml
 
-root_path = Path(__file__).parents[1]
-
-#! relative path import
-import sys
-sys.path.append(str(root_path.resolve()))
 import graph_sdc
+
 
 #! ignore warnings
 import warnings
 warnings.filterwarnings("ignore")
 
 import logging
+import sys
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
 import argparse
 
 if __name__ == "__main__":
+    root_path = Path(__file__).parents[1]
     with open(root_path.joinpath("config/transformer.yaml"), "r") as fp:
         config = yaml.safe_load(fp)
     
@@ -366,6 +363,8 @@ if __name__ == "__main__":
     if args.visible is not None:
         config["env"]["observation"]["vehicles_count"] = args.visible + 1 # add self
     if args.density is not None:
+        config["env"]["vehicles_count"] = int(config["env"]["vehicles_count"]\
+            * args.density / config["env"]["vehicles_density"])
         config["env"]["vehicles_density"] = args.density
     rl_cls_name = config["rl_cls"]
     if args.lr is not None:
